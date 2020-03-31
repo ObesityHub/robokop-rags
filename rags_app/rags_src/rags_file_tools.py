@@ -66,7 +66,7 @@ class MWASFileReader:
 
                 if curie_index is None or name_index is None or pval_index is None:
                     logger.warning(f'Error reading file headers for {self.mwas_file.file_path} - {headers}')
-                    return False, hit_container, num_found
+                    return False, hit_container, None
 
                 for data in csv_reader:
                     try:
@@ -84,6 +84,7 @@ class MWASFileReader:
                 logger.info(f'Found {num_found} significant metabolites in {self.mwas_file.file_path}!')
         except IOError:
             logger.warning(f'Could not open file: {self.mwas_file.file_path}')
+            return False, hit_container, None
 
         return True, hit_container, num_found
 
