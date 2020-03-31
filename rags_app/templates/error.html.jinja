@@ -1,0 +1,13 @@
+{% extends "skeleton.html.jinja" %}
+{% set current_page = "home" %}
+{% block title %}Error{% endblock %}
+{% block main %}
+<div class="error_body">
+   {% if error_message %}
+   <div class="alert alert-danger" role="alert">{{ error_message }}</div>
+   {% else %}
+   <div class="alert alert-danger" role="alert">There was an error.</div>
+   {% endif %}
+   <div><p>Go back to <a class="btn btn-primary btn-lg" href="/projects/" role="button">Projects &raquo;</a></p></div>
+</div>
+{% endblock %}

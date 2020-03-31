@@ -1,0 +1,12 @@
+starlette
+fastapi
+jinja2
+aiofiles
+sqlalchemy
+python-multipart
+pytabix
+lru-dict
+neo4j-driver
+pytest
+redis
+requests
