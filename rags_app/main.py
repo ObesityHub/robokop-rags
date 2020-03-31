@@ -127,7 +127,7 @@ def add_rag(request: Request,
         return get_edit_project_view_template(rags_project_db, project_id, template_context)
     else:
         real_file_path = f'{os.environ["RAGS_DATA_DIR"]}/{file_path}'
-        rags_project_db.create_rag(project_id=project_id,
+        if rags_project_db.create_rag(project_id=project_id,
                                    rag_name=new_rag_name,
                                    rag_type=new_rag_type,
                                    as_node_type=as_node_type,
@@ -136,7 +136,11 @@ def add_rag(request: Request,
                                    p_value_cutoff=p_value_cutoff,
                                    max_p_value=max_p_value,
                                    file_path=real_file_path,
-                                   has_tabix=has_tabix)
+                                   has_tabix=has_tabix):
+            template_context["success_message"] = f'A new association study was added. ({new_rag_name})'
+        else:
+            template_context["error_message"] = f'Error creating ({new_rag_name}).'
+
         return get_edit_project_view_template(rags_project_db, project_id, template_context)
 
 
