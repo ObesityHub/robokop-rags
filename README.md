@@ -23,7 +23,7 @@ $ git clone https://github.com/ObesityHub/robokop-rags.git
 
 Set up these required environment variables.
 
-Create a text file at `<workspace>/rags.env`, parallel to the repository, and copy the following settings there. 
+Create the text file: `<workspace>/rags.env`, parallel to the repository, and copy the following settings there. 
 
 Change them as needed for your set up or use these defaults. 
 
@@ -92,9 +92,9 @@ $ docker-compose up
 
 Put your association study files in this directory:
 ```
-$ <workspace>/robokop-rags/rags_data/
+$ <workspace>/rags_data/
 ```
-You can move the sample files over if you'd like:
+You can move the sample files over if you'd like to see examples:
 ```
 $ cd <workspace>
 $ cp ./robokop-rags/rags_app/test/sample_data/* ./rags_data/
