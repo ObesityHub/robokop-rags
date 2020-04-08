@@ -1,0 +1,14 @@
+version: "3"
+services:
+  rags_graph:
+    build:
+      context: ../
+    container_name: rags_graph
+    entrypoint:
+      - /bin/sh
+    stdin_open: true
+    tty: true
+    volumes:
+      - ../../../neo4j_data:/data
+      - ../../../neo4j_logs:/logs
+      - ../../../neo4j_ssl:/ssl

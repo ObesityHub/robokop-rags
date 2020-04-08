@@ -41,10 +41,12 @@ NEO4J_HOST=rags_graph
 NEO4J_HTTP_PORT=7474
 NEO4J_HTTPS_PORT=7473
 NEO4J_BOLT_PORT=7687
-NEO4J_HEAP_MEMORY=7G
-NEO4J_HEAP_MEMORY_INIT=4G
-NEO4J_CACHE_MEMORY=4G
+NEO4J_HEAP_MEMORY=8G
+NEO4J_HEAP_MEMORY_INIT=8G
+NEO4J_CACHE_MEMORY=5G
 NEO4J_READONLY=False
+#RAGS_BASE_GRAPH_URL=None
+RAGS_BASE_GRAPH_URL=https://robokopkg.renci.org/latest-graph.db
 
 # Cache - Redis
 RAGS_CACHE_HOST=rags_cache
@@ -72,19 +74,41 @@ NEO4J_HEAP_MEMORY_INIT
 NEO4J_CACHE_MEMORY
 ```
 
+### Set up a Knowledge Graph
+Specify the URL of a knowledge graph in your environment settings. The default will load our latest Robokop Knowledge Graph. Setting it to "None" indicates that a local graph will be used.
 
-Run the following to make sure that your terminal is set up with the environment variables before running docker commands.
+```
+RAGS_BASE_GRAPH_URL=https://robokopkg.renci.org/latest-graph.db
+or
+RAGS_BASE_GRAPH_URL=None
+```
+
+Alternatively, if you already have a knowledge graph from a Neo4j 3.5 admin dump, copy your dump file and rename it so it matches the path below. 
+
+Create the neo4j_data directory if it doesn't exist. It's fine to overwrite an existing one.
+```
+<workspace>/neo4j_data/graph.db.latest.dump
+```
+
+
+## Starting the Application
+Run the following to make sure you're in the right place, and your terminal is set up with the environment variables.
 
 ```
 $ cd <workspace>/robokop-rags
 $ source ./set_rags_env.sh
 ```
 
-### Starting the Application Server
-Start the docker containers:
+If you set up a Knowledge Graph in previous steps, you still need to load it. This may take a few minutes or more depending on the size of the graph.
+
+Run the following script to load the graph:
+```
+$ source ./load_existing_graph.sh
+```
+
+Finally, start the docker containers:
 
 ```
-$ cd <workspace>/robokop-rags
 $ docker-compose up
 ```
 
@@ -121,6 +145,3 @@ Run the tests:
 $ cd test
 $ pytest
 ```
-
-
-
