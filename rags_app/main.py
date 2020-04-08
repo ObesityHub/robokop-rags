@@ -11,6 +11,7 @@ import rags_src.node_types as node_types
 from rags_src.rags_core import available_rag_types
 from rags_src.rags_project import RagsProject
 from rags_src.rags_project_db import RagsProjectDB
+from rags_src.rags_graph_db import RagsGraphDB
 
 # this actually creates the DB if it doesn't exist
 rags_db_models.Base.metadata.create_all(bind=engine)
@@ -203,5 +204,44 @@ def get_edit_project_view_template(rags_project_db: RagsProjectDB, project_id: i
     return templates.TemplateResponse("edit_project.html.jinja", template_context)
 
 
+@app.get("/project_query/{project_id}")
+def project_query_view(project_id: int, request: Request, rags_project_db: RagsProjectDB = Depends(get_db)):
+    template_context = {"request": request}
+    if not rags_project_db.project_exists_by_id(project_id):
+        template_context["error_message"] = f"Oh No. That project seems to be missing from the database."
+        return templates.TemplateResponse("error.html.jinja", template_context)
+
+    return get_project_query_view(rags_project_db, project_id, template_context)
+
+
+@app.get("/project_query/{project_id}/{query_id}")
+def project_query_view(project_id: int, query_id:int, request: Request, rags_project_db: RagsProjectDB = Depends(get_db)):
+    template_context = {"request": request}
+    if not rags_project_db.project_exists_by_id(project_id):
+        template_context["error_message"] = f"Oh No. That project seems to be missing from the database."
+        return templates.TemplateResponse("error.html.jinja", template_context)
+
+    rags_graph_db = RagsGraphDB()
+    if query_id == 1:
+        custom_query = f"match (a:{node_types.SEQUENCE_VARIANT})-[r:related_to{{project_id: {project_id}}}]-(b) return distinct a.id, r.namespace, r.p_value ORDER BY r.p_value"
+        results = rags_graph_db.query_the_graph(custom_query, limit=50)
+        template_context["project_query"] = custom_query + " (limited to 50 results)"
+        template_context["project_query_results"] = results
+        template_context["project_query_headers"] = ["Variant", "Association Study", "P Value"]
+    elif query_id == 2:
+        custom_query = f"match (a:{node_types.CHEMICAL_SUBSTANCE})-[r:related_to{{project_id: {project_id}}}]-(b) return distinct a.id, r.namespace, r.p_value ORDER BY r.p_value"
+        results = rags_graph_db.query_the_graph(custom_query, limit=50)
+        template_context["project_query"] = custom_query + " (limited to 50 results)"
+        template_context["project_query_results"] = results
+        template_context["project_query_headers"] = ["Metabolite", "Association Study", "P Value"]
+
+    return get_project_query_view(rags_project_db, project_id, template_context)
+
+
+def get_project_query_view(rags_project_db: RagsProjectDB, project_id: int, template_context: dict):
+    project = rags_project_db.get_project_by_id(project_id)
+    template_context["project"] = project
+
+    return templates.TemplateResponse("project_queries.html.jinja", template_context)
 
 
