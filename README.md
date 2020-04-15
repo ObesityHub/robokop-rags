@@ -7,7 +7,7 @@ Robokop Association Graphs or RAGS is a tool for uploading results from associat
 ### Prerequisites
 [Install Docker](https://www.docker.com/get-started) if not installed on your computer. 
 
-Make a ``<workspace>`` directory. 
+Make a ``<workspace>`` directory. ``<workspace>`` can be any directory, for example: ~/rags_workspace/
 
 ```
 $ mkdir <workspace>
