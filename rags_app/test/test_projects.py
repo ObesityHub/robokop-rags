@@ -1,6 +1,5 @@
 import pytest
 import os
-from fastapi.testclient import TestClient
 
 import rags_src.rags_db_models as rags_db_models
 import rags_src.rags_core as rags_core
@@ -10,12 +9,9 @@ from rags_src.rags_project import RagsProject
 from rags_src.rags_project_db import RagsProjectDB
 
 from app_database import TestSessionLocal, test_database_engine, TEST_DATABASE_LOCATION
-from main import app
 
 if os.path.exists(TEST_DATABASE_LOCATION):
     os.remove(TEST_DATABASE_LOCATION)
-
-client = TestClient(app)
 
 rags_db_models.Base.metadata.create_all(bind=test_database_engine)
 
