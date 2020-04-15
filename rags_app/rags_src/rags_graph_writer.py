@@ -41,7 +41,11 @@ class BufferedWriter(object):
         if node.id in self.written_nodes:
             return
         if node.name is None or node.name == '':
-            logger.warning(f"Node {node.id} is missing a label")
+            logger.warning(f"Writing Node {node.id}, it's missing a label")
+        else:
+            #logger.info(f"Writing Node {node.id}, label=({node.name})")
+            pass
+
         #self.export_graph.add_type_labels(node)
         self.written_nodes.add(node.id)
         node_queue = self.node_queues[node.type]
@@ -135,16 +139,19 @@ def export_edge_chunk(tx, edge_list, edge_label):
 
 
 def export_node_chunk(tx, node_list, node_type):
-    cypher = f"""UNWIND $batches as batch
-                MERGE (a:{node_types.ROOT_ENTITY} {{id: batch.id}})\n
-                set a:{node_type}\n"""
-    cypher += """set a += batch.properties\n"""
-
+    cypher = f"""UNWIND {{batches}} AS batch
+                MERGE (a:{node_types.ROOT_ENTITY} {{id: batch.id}})
+                ON CREATE SET a:{node_types.ROOT_ENTITY}
+                ON CREATE SET a:{node_type}
+                ON CREATE SET a += batch.properties"""
+    logger.warning(f'using cypher: {cypher}')
     batch = []
     for n in node_list:
         n.properties['equivalent_identifiers'] = [s.identifier for s in n.synonyms]
         if n.name is not None:
             n.properties['name'] = n.name
-        export_node = {'id': n.id, 'properties': n.properties}
+            #logger.warning(f"Setting {n.id} name property to {n.name}")
+        export_node = {'id': n.id, 'name': n.name, 'properties': n.properties}
+        #logger.warning(f"Exporting {export_node}")
         batch.append(export_node)
     tx.run(cypher, {'batches': batch})
