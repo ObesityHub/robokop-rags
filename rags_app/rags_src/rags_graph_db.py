@@ -1,4 +1,3 @@
-
 from neo4j import GraphDatabase
 
 import os
@@ -38,6 +37,10 @@ class RagsGraphDB(object):
             return_list = list(response)
 
         return return_list
+
+    def delete_project(self, project_id: int):
+        with self.get_session() as session:
+            session.run(f'match (a)-[r:related_to{{project_id={project_id}}}-(b) delete r')
 
     def __del__(self):
         if self.graph_db_driver:

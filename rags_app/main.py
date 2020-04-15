@@ -66,12 +66,14 @@ def delete_project(request: Request,
                    project_id: int = Form(...),
                    rags_project_db: RagsProjectDB = Depends(get_db)):
     template_context = {"request": request}
+    rags_graph_db = RagsGraphDB()
+    rags_graph_db.delete_project(project_id)
     if rags_project_db.project_exists_by_id(project_id):
         rags_project_db.delete_project(project_id)
-        template_context["success_message"] = f'Project deleted successfully.'
     else:
         raise HTTPException(status_code=400, detail="That project doesn't exist or was already deleted.")
 
+    template_context["success_message"] = f'Project deleted successfully.'
     template_context["projects"] = get_projects_for_display(rags_project_db)
 
     return templates.TemplateResponse("projects.html.jinja", template_context)
@@ -234,6 +236,12 @@ def project_query_view(project_id: int, query_id:int, request: Request, rags_pro
         template_context["project_query"] = custom_query + " (limited to 50 results)"
         template_context["project_query_results"] = results
         template_context["project_query_headers"] = ["Metabolite", "Association Study", "P Value"]
+    elif query_id == 3:
+        custom_query = f"MATCH (c:chemical_substance)--(g:gene)--(v:sequence_variant)-[x]-(d:disease_or_phenotypic_feature)-[y]-(c) WHERE x.p_value < 1e-5 AND y.p_value < 1e-6 RETURN d.id, c.id, y.p_value, v.id, x.p_value, g.id"
+        results = rags_graph_db.query_the_graph(custom_query, limit=50)
+        template_context["project_query"] = custom_query + " (limited to 50 results)"
+        template_context["project_query_results"] = results
+        template_context["project_query_headers"] = ["Phenotype", "Chemical", "Chem p-value", "Sequence Variant", "Variant p-value", "Gene"]
 
     return get_project_query_view(rags_project_db, project_id, template_context)
 

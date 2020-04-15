@@ -1,4 +1,3 @@
-
 from rags_src.rags_cache import Cache
 from rags_src.graph_components import KNode, LabeledID
 from rags_src.util import LoggingUtil, Text
@@ -30,7 +29,7 @@ class Synonymizer(object):
             logger.warning(e)
             normalization = None
         if normalization:
-            logger.debug(f"cache hit: {key}")
+            logger.info(f"cache hit: {key} {normalization}")
         else:
             if node.type == node_types.SEQUENCE_VARIANT:
                 normalization = self.get_sequence_variant_normalization(node)
@@ -70,7 +69,7 @@ class Synonymizer(object):
 
         return [node.id, node.name, node.synonyms]
 
-    def get_sequence_variant_normalization(self, node:KNode):
+    def get_sequence_variant_normalization(self, node: KNode):
         syns = self.get_sequence_variant_synonyms(node)
         node.synonyms = syns
         caids = node.get_synonyms_by_prefix('CAID')
