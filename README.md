@@ -83,9 +83,7 @@ or
 RAGS_BASE_GRAPH_URL=None
 ```
 
-Alternatively, if you already have a knowledge graph from a Neo4j 3.5 admin dump, copy your dump file and rename it so it matches the path below. 
-
-Create the neo4j_data directory if it doesn't exist. It's fine to overwrite an existing one.
+Alternatively, if you already have a knowledge graph from a Neo4j 3.5 admin dump, copy your dump file and rename it so it matches the path below. Create the neo4j_data directory if it doesn't exist.
 ```
 <workspace>/neo4j_data/graph.db.latest.dump
 ```
