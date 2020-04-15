@@ -10,11 +10,11 @@ logger = LoggingUtil.init_logging(__name__, level=logging.DEBUG)
 
 class KNode(object):
 
-    def __init__(self, id: str, type: str, name: str = None, properties: dict = {}):
+    def __init__(self, id: str, type: str, name: str = None, properties: dict = None):
         self.id = id
         self.type = type
         self.name = name
-        self.properties = properties
+        self.properties = properties if properties else {}
 
         # Synonyms are a list of synonymous curies
         self.synonyms = set()
