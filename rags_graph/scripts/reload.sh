@@ -53,3 +53,5 @@ docker exec $(docker ps -f name=rags_graph -q) bash bin/neo4j-admin load --from 
 
 echo "killing graph loading container..."
 docker kill $(docker ps -f name=rags_graph -q)
+
+echo "loading graph complete..."

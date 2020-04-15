@@ -4,12 +4,12 @@ mkdir -p "$RAGS_HOME"/neo4j_data/databases/graph.db
 
 # if we have a base graph URL, grab it from the URL
 if [ "$RAGS_BASE_GRAPH_URL" != "None" ]; then
-    wget "$RAGS_HOME"/neo4j_data/graph.db.latest.dump "$RAGS_BASE_GRAPH_URL"
-    ./rags_graph/scripts/reload.sh -c ./rags_graph/scripts/docker-compose-backup.yml
+    echo "loading graph at $RAGS_BASE_GRAPH_URL"
+    curl -o "$RAGS_HOME/neo4j_data/graph.db.latest.dump" "$RAGS_BASE_GRAPH_URL"
 fi
 
 # check to make sure we have a dump file
-if test -f "$RAGS_HOME"/neo4j_data/graph.db.latest.dump; then
+if test -f "$RAGS_HOME/neo4j_data/graph.db.latest.dump"; then
     ./rags_graph/scripts/reload.sh -c ./rags_graph/scripts/docker-compose-backup.yml
 else
     echo "Error: No dump file found at ../neo4j_data/graph.db.latest.dump"
