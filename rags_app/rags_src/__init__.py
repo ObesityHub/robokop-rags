@@ -1,3 +1,0 @@
-"""
-gwas_builder module
-"""

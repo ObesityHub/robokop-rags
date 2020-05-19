@@ -1,11 +1,7 @@
 
-from rags_src.util import Text, LoggingUtil
+from rags_src.util import Text
 
 from typing import NamedTuple
-
-import logging
-
-logger = LoggingUtil.init_logging(__name__, level=logging.DEBUG)
 
 
 class KNode(object):
@@ -18,18 +14,14 @@ class KNode(object):
 
         # Synonyms are a list of synonymous curies
         self.synonyms = set()
-        self.synonyms.add(LabeledID(identifier=id, label=name))
+        self.synonyms.add(id)
 
     def add_synonyms(self, new_synonym_set):
         self.synonyms.update(new_synonym_set)
 
     def get_synonyms_by_prefix(self, prefix):
-        """Returns curies (not labeledIDs) for any synonym with the input prefix"""
-        return set( filter(lambda x: Text.get_curie(x).upper() == prefix.upper(), [s.identifier for s in self.synonyms]) )
-
-    def get_labeled_ids_by_prefix(self, prefix):
-        """Returns labeledIDs for any synonym with the input prefix"""
-        return set( filter(lambda x: Text.get_curie(x.identifier).upper() == prefix.upper(), self.synonyms) )
+        """Returns curies for any synonym with the input prefix"""
+        return set( filter(lambda x: Text.get_curie(x).upper() == prefix.upper(), self.synonyms) )
 
     def __repr__(self):
         # return "KNode(id={0},type={1})".format (self.id, self.type)
@@ -38,9 +30,7 @@ class KNode(object):
     def __str__(self):
         return self.__repr__()
 
-    # Is using identifier sufficient?  Probably need to be a bit smarter.
     def __hash__(self):
-        """Class needs __hash__ in order to be used as a node in networkx"""
         return self.id.__hash__()
 
     def __eq__(self, other):
@@ -48,57 +38,36 @@ class KNode(object):
             return False
         return self.id == other.id
 
-    def get_shortname(self):
-        """Return a short user-readable string suitable for display in a list"""
-        if self.name is not None:
-            return '%s (%s)' % (self.name, self.id)
-        return self.id
-
-    def n2json(self):
-        """ Serialize a node as json. """
-        return {
-            "id": self.id,
-            "type": f"blm:{self.type}",
-        }
-
 
 class KEdge(object):
-    """Used as the edge object in KnowledgeGraph.
-
-    Instances of this class should be returned from greenT"""
 
     def __init__(self,
                  source_id: str,
                  target_id: str,
                  provided_by: str,
+                 input_id: str,
                  ctime: int,
+                 original_predicate: str,
+                 standard_predicate: str,
                  namespace: str,
                  project_id: str,
                  project_name: str,
-                 original_predicate: str,
-                 standard_predicate: str,
                  url: str = "",
-                 input_id: str = "",
-                 publications: list = [],
-                 properties: dict = {}):
-        self.source_id = source_id
-        self.target_id = target_id
-        self.provided_by = provided_by
-        self.ctime = ctime
+                 publications: list = None,
+                 properties: dict = None):
         self.namespace = namespace
         self.project_id = project_id
         self.project_name = project_name
+        self.source_id = source_id
+        self.target_id = target_id
+        self.provided_by = provided_by
+        self.input_id = input_id
+        self.ctime = ctime
         self.original_predicate = original_predicate
         self.standard_predicate = standard_predicate
-        self.publications = publications
+        self.publications = publications if publications else []
+        self.properties = properties if properties else {}
         self.url = url
-        self.properties = properties
-
-    def load_attribute(self, key, value):
-        if key == 'original_predicate' or key == 'standard_predicate':
-            return LabeledID(**value) if isinstance(value, dict) else value
-        else:
-            return super().load_attribute(key, value)
 
     def __key(self):
         return (self.source_id, self.target_id, self.provided_by, self.original_predicate, self.project_id, self.namespace)
@@ -123,16 +92,6 @@ class KEdge(object):
 
     def __str__(self):
         return self.__repr__()
-
-    def e2json(self):
-        """ Serialize an edge as json. """
-        return {
-            "ctime": str(self.ctime),
-            "sub": self.source_id,
-            "pred": self.standard_predicate,
-            "obj": self.target_id,
-            "pubs": str(self.publications)
-        }
 
 
 class LabeledID(NamedTuple):
