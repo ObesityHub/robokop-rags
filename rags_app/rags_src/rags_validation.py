@@ -4,7 +4,7 @@ from rags_src.rags_graph_builder import RAG
 from rags_src.rags_file_tools import GWASFileReader
 from rags_src.rags_core import SignificantHitsContainer
 from rags_src.rags_graph_db import RagsGraphDB
-from rags_src.services.synonymizer import Synonymizer
+from rags_src.rags_normalizer import RagsNormalizer
 from typing import NamedTuple
 
 
@@ -16,9 +16,9 @@ class GWASValidationInfo(NamedTuple):
 
 class RagsValidator(object):
 
-    def __init__(self, graph_db: RagsGraphDB, synonymizer: Synonymizer):
+    def __init__(self, graph_db: RagsGraphDB, normalizer: RagsNormalizer):
         self.graph_db = graph_db
-        self.synonymizer = synonymizer
+        self.normalizer = normalizer
 
     def validate_associations(self,
                               project_id: str,
@@ -49,7 +49,7 @@ class RagsValidator(object):
         gwas_node = KNode(gwas_build.was_node_curie,
                           name=gwas_build.was_node_label,
                           type=gwas_build.was_node_type)
-        self.synonymizer.synonymize(gwas_node)
+        self.normalizer.normalize(gwas_node)
         real_was_node_curie = gwas_node.id
 
         details = f'The file was missing variants: {", ".join(str(var) for var in missing_variants)}' if verbose else None

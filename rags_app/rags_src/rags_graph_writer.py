@@ -144,10 +144,10 @@ def export_node_chunk(tx, node_list, node_type):
                 ON CREATE SET a:{node_types.ROOT_ENTITY}
                 ON CREATE SET a:{node_type}
                 ON CREATE SET a += batch.properties"""
-    logger.warning(f'using cypher: {cypher}')
+    #logger.warning(f'using cypher: {cypher}')
     batch = []
     for n in node_list:
-        n.properties['equivalent_identifiers'] = [s.identifier for s in n.synonyms]
+        n.properties['equivalent_identifiers'] = list(n.synonyms)
         if n.name is not None:
             n.properties['name'] = n.name
             #logger.warning(f"Setting {n.id} name property to {n.name}")

@@ -5,7 +5,7 @@ from rags_src.rags_graph_db import RagsGraphDB
 from rags_src.rags_project_db import RagsProjectDB
 from rags_src.util import LoggingUtil
 from rags_src.rags_cache import Cache
-from rags_src.services.synonymizer import Synonymizer
+from rags_src.rags_normalizer import RagsNormalizer
 from rags_src.rags_core import Project, GWAS, MWAS
 import logging
 import os
@@ -29,20 +29,20 @@ class RagsProject:
         self.rags_validator = None
 
     def init_builder(self):
-        rags_cache = Cache(
-            redis_host=os.environ["RAGS_CACHE_HOST"],
-            redis_port=os.environ["RAGS_CACHE_PORT"],
-            redis_db=os.environ["RAGS_CACHE_DB"],
-            redis_password=os.environ["RAGS_CACHE_PASSWORD"])
-
-        self.rags_builder = RagsGraphBuilder(RagsGraphDB(),
-                                             Synonymizer(rags_cache),
-                                             rags_cache)
+        if not self.rags_builder:
+            rags_cache = Cache(
+                redis_host=os.environ["RAGS_CACHE_HOST"],
+                redis_port=os.environ["RAGS_CACHE_PORT"],
+                redis_db=os.environ["RAGS_CACHE_DB"],
+                redis_password=os.environ["RAGS_CACHE_PASSWORD"])
+            self.rags_builder = RagsGraphBuilder(self.project_id,
+                                                 self.project_name,
+                                                 RagsGraphDB(),
+                                                 rags_cache)
 
     def prep_rags(self):
         logger.info('About to prep rags!')
-        if not self.rags_builder:
-            self.init_builder()
+        self.init_builder()
 
         all_rags = self.project_db.get_rags(self.project_id)
         num_rags = len(all_rags)
@@ -66,22 +66,22 @@ class RagsProject:
 
     def build_rags(self):
         logger.info('About to build rags!')
-        if not self.rags_builder:
-            self.init_builder()
+        self.init_builder()
 
-        # Batch synonymize and precache everything for the sequence variants.
-        # Write them to the graph.
+        # Normalize, cache, and process everything needed for the sequence variants.
+        # Write all of that to the graph.
         unprocessed_gwas_hits = self.project_db.get_unprocessed_gwas_hits(self.project_id)
         if unprocessed_gwas_hits:
             logger.info('About to process sequence variants!')
-            self.rags_builder.prepopulate_variant_synonymization_cache(unprocessed_gwas_hits)
-            processed_gwas_hits = self.rags_builder.process_gwas_variants(unprocessed_gwas_hits)
-            logger.info(f'{len(processed_gwas_hits)} new sequence variants processed and added to the graph.')
+            num_processed_gwas_hits = self.rags_builder.process_gwas_variants(unprocessed_gwas_hits)
+            logger.info(f'{num_processed_gwas_hits} new sequence variants processed and added to the graph.')
             # the process_gwas_variants function may change GWASHit ORM objects which would be committed to the DB here
             self.project_db.commit_orm_transactions()
         else:
             logger.info(f'No unprocessed sequence variants found for {self.project_id}.')
 
+        # Normalize, cache, and process everything needed for the metabolites.
+        # Write all of that to the graph.
         metabolite_hits = self.project_db.get_unprocessed_mwas_hits(self.project_id)
         if metabolite_hits:
             logger.info('About to process metabolites!')
@@ -106,17 +106,17 @@ class RagsProject:
             logger.info(f'Starting rag associations {rag_counter} of {total_num_rags}: {rag.rag_name}')
             if rag.rag_type == MWAS:
                 if rag.written:
-                    self.rags_builder.process_mwas_associations(self.project_id, self.project_name, rag, unprocessed_mwas_hits)
+                    self.rags_builder.process_mwas_associations(rag, unprocessed_mwas_hits)
                 else:
-                    self.rags_builder.process_mwas_associations(self.project_id, self.project_name, rag, all_mwas_hits)
+                    self.rags_builder.process_mwas_associations(rag, all_mwas_hits)
 
             elif rag.rag_type == GWAS:
                 if rag.written:
                     # it's been written previously, only add the new associations
-                    self.rags_builder.process_gwas_associations(self.project_id, self.project_name, rag, unprocessed_gwas_hits)
+                    self.rags_builder.process_gwas_associations(rag, unprocessed_gwas_hits)
                 else:
                     # otherwise write all of the associations
-                    self.rags_builder.process_gwas_associations(self.project_id, self.project_name, rag, all_gwas_hits)
+                    self.rags_builder.process_gwas_associations(rag, all_gwas_hits)
             rag.written = True
 
         for gwas_hit in unprocessed_gwas_hits:
@@ -138,7 +138,7 @@ class RagsProject:
 
     def init_validator(self):
         if not self.rags_validator:
-            self.rags_validator = RagsValidator(self.graph_db, self.synonymizer)
+            self.rags_validator = RagsValidator(self.graph_db, self.normalizer)
 
     def validate_project(self, verbose=False):
         logger.info(f'Running validation for all builds in {self.project_id}')

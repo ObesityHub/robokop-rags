@@ -21,7 +21,7 @@ def test_node_writer(graph_db):
         for i in range(1, 51):
             test_node = KNode(f'FAKECURIE:{i}', node_types.SEQUENCE_VARIANT, name=f'Fake Name {i}')
             test_node.properties['testing'] = 1
-            test_node.synonyms = [LabeledID(f'ALT_FAKE_CURIE:{i}'), LabeledID(f'DIFFERENT_FAKE_CURIE:{i}')]
+            test_node.synonyms = [f'ALT_FAKE_CURIE:{i}', f'DIFFERENT_FAKE_CURIE:{i}']
             writer.write_node(test_node)
 
         writer.flush()
