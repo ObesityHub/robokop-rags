@@ -4,8 +4,6 @@ from rags_src.rags_validation import RagsValidator
 from rags_src.rags_graph_db import RagsGraphDB
 from rags_src.rags_project_db import RagsProjectDB
 from rags_src.util import LoggingUtil
-from rags_src.rags_cache import Cache
-from rags_src.rags_normalizer import RagsNormalizer
 from rags_src.rags_core import Project, GWAS, MWAS
 import logging
 import os
@@ -23,22 +21,14 @@ class RagsProject:
         self.project_db = project_db
 
         # Lazy instantiation
-        self.all_rags = None
-        self.all_hits = None
         self.rags_builder = None
         self.rags_validator = None
 
     def init_builder(self):
         if not self.rags_builder:
-            rags_cache = Cache(
-                redis_host=os.environ["RAGS_CACHE_HOST"],
-                redis_port=os.environ["RAGS_CACHE_PORT"],
-                redis_db=os.environ["RAGS_CACHE_DB"],
-                redis_password=os.environ["RAGS_CACHE_PASSWORD"])
             self.rags_builder = RagsGraphBuilder(self.project_id,
                                                  self.project_name,
-                                                 RagsGraphDB(),
-                                                 rags_cache)
+                                                 RagsGraphDB())
 
     def prep_rags(self):
         logger.info('About to prep rags!')
@@ -68,7 +58,7 @@ class RagsProject:
         logger.info('About to build rags!')
         self.init_builder()
 
-        # Normalize, cache, and process everything needed for the sequence variants.
+        # Normalize and process everything needed for the sequence variants.
         # Write all of that to the graph.
         unprocessed_gwas_hits = self.project_db.get_unprocessed_gwas_hits(self.project_id)
         if unprocessed_gwas_hits:
@@ -80,7 +70,7 @@ class RagsProject:
         else:
             logger.info(f'No unprocessed sequence variants found for {self.project_id}.')
 
-        # Normalize, cache, and process everything needed for the metabolites.
+        # Normalize process everything needed for the metabolites.
         # Write all of that to the graph.
         metabolite_hits = self.project_db.get_unprocessed_mwas_hits(self.project_id)
         if metabolite_hits:
@@ -138,7 +128,7 @@ class RagsProject:
 
     def init_validator(self):
         if not self.rags_validator:
-            self.rags_validator = RagsValidator(self.graph_db, self.normalizer)
+            self.rags_validator = RagsValidator(self.graph_db)
 
     def validate_project(self, verbose=False):
         logger.info(f'Running validation for all builds in {self.project_id}')
@@ -146,9 +136,12 @@ class RagsProject:
         self.init_validator()
 
         all_good = True
-        for gwas_build in self.all_gwas_builds.values():
-            validation_info = self.rags_validator.validate_associations(self.project_id, gwas_build,
-                                                                        self.all_significant_variants,
+        all_rags = self.project_db.get_rags(self.project_id)
+        all_gwas_hits = self.project_db.get_all_gwas_hits(self.project_id)
+
+        for rag in all_rags:
+            validation_info = self.rags_validator.validate_associations(self.project_id, rag,
+                                                                        all_gwas_hits,
                                                                         verbose=verbose)
             output = f'Validation for {gwas_build.build_name}: {validation_info.message}'
             if verbose:
@@ -159,14 +152,3 @@ class RagsProject:
             if not validation_info.success:
                 all_good = False
         return all_good
-
-
-    #def crawl_project(self):
-    #    node_ids = []
-    #    for variant in self.all_significant_variants.iterate_all_variants():
-    #        node_ids.append(variant.real_id)
-    #
-    #    poolrun(node_types.SEQUENCE_VARIANT, node_types.GENE, self.rosetta, identifier_list=labeled_ids)
-
-
-

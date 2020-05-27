@@ -13,12 +13,8 @@ logger = LoggingUtil.init_logging("rags.rags_file_tools", logging.INFO, format='
 
 
 @dataclass
-class AssociationsFile:
+class GWASFile:
     file_path: str
-
-
-@dataclass
-class GWASFile(AssociationsFile):
     has_tabix: bool = True
     delimiter: str = '\t'
     reference_genome: str = 'HG19'
@@ -26,7 +22,8 @@ class GWASFile(AssociationsFile):
 
 
 @dataclass
-class MWASFile(AssociationsFile):
+class MWASFile:
+    file_path: str
     delimiter: str = ','
 
 

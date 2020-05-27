@@ -4,6 +4,17 @@ from rags_src.util import Text
 from typing import NamedTuple
 
 
+class LabeledID(NamedTuple):
+    identifier: str
+    label: str = ''
+
+    def __repr__(self):
+        return f'({self.identifier},{self.label})'
+
+    def __gt__(self, other):
+        return self.identifier > other.identifier
+
+
 class KNode(object):
 
     def __init__(self, id: str, type: str, name: str = None, properties: dict = None):
@@ -47,8 +58,8 @@ class KEdge(object):
                  provided_by: str,
                  input_id: str,
                  ctime: int,
-                 original_predicate: str,
-                 standard_predicate: str,
+                 original_predicate: LabeledID,
+                 standard_predicate: LabeledID,
                  namespace: str,
                  project_id: str,
                  project_name: str,
@@ -70,7 +81,12 @@ class KEdge(object):
         self.url = url
 
     def __key(self):
-        return (self.source_id, self.target_id, self.provided_by, self.original_predicate, self.project_id, self.namespace)
+        return (self.source_id,
+                self.target_id,
+                self.provided_by,
+                self.original_predicate,
+                self.project_id,
+                self.namespace)
 
     def __eq__(self, other):
         return self.__key() == other.__key()
@@ -93,13 +109,3 @@ class KEdge(object):
     def __str__(self):
         return self.__repr__()
 
-
-class LabeledID(NamedTuple):
-    identifier: str
-    label: str = ''
-
-    def __repr__(self):
-        return f'({self.identifier},{self.label})'
-
-    def __gt__(self, other):
-        return self.identifier > other.identifier

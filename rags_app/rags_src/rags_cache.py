@@ -33,10 +33,14 @@ class JSONCacheSerializer(CacheSerializer):
 
 class Cache:
     """ Cache objects by configurable means. """
-    def __init__(self, cache_path="cache",
+    def __init__(self,
                  serializer=PickleCacheSerializer,
-                 redis_host="localhost", redis_port=6379, redis_db=0, redis_password="",
-                 enabled=True, prefix=''):
+                 redis_host="localhost",
+                 redis_port=6379,
+                 redis_db=0,
+                 redis_password="",
+                 enabled=True,
+                 prefix=''):
 
         """ Connect to cache. """
         self.enabled = enabled

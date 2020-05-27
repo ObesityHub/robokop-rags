@@ -16,9 +16,9 @@ class GWASValidationInfo(NamedTuple):
 
 class RagsValidator(object):
 
-    def __init__(self, graph_db: RagsGraphDB, normalizer: RagsNormalizer):
+    def __init__(self, graph_db: RagsGraphDB):
         self.graph_db = graph_db
-        self.normalizer = normalizer
+        self.normalizer = RagsNormalizer()
 
     def validate_associations(self,
                               project_id: str,
