@@ -6,14 +6,14 @@ from rags_src.rags_graph_writer import BufferedWriter
 from rags_src.rags_graph_db import RagsGraphDB
 from rags_src.rags_file_tools import GWASFile, MWASFile
 from rags_src.util import LoggingUtil
-from rags_src.rags_cache import Cache
 from rags_src.rags_normalizer import RagsNormalizer
 
 import rags_src.node_types as node_types
 import rags_src.rags_core as rags_core
 from rags_src.rags_core import GWASHit, MWASHit
 
-from robokop_genetics.genetics_services import GeneticsServices, MYVARIANT, ALL_VARIANT_TO_GENE_SERVICES
+from robokop_genetics.genetics_services import GeneticsServices, ALL_VARIANT_TO_GENE_SERVICES
+from robokop_genetics.genetics_normalization import GeneticsNormalizer
 
 from typing import List
 import logging
@@ -25,12 +25,12 @@ logger = LoggingUtil.init_logging("rags.rags_graph_builder", logging.INFO, forma
 
 class RagsGraphBuilder(object):
 
-    def __init__(self, project_id: str, project_name: str, graph_db: RagsGraphDB, cache: Cache):
+    def __init__(self, project_id: str, project_name: str, graph_db: RagsGraphDB):
         self.project_id = project_id
         self.project_name = project_name
-        self.cache = cache
-        self.normalizer = RagsNormalizer(cache)
-        self.genetics_services = GeneticsServices()
+        self.rags_normalizer = RagsNormalizer()
+        self.genetics_normalizer = GeneticsNormalizer(log_file_path=f'{os.environ["RAGS_HOME"]}/logs/')
+        self.genetics_services = GeneticsServices(log_file_path=f'{os.environ["RAGS_HOME"]}/logs/')
         self.writer = BufferedWriter(graph_db)
         #self.concept_model = rosetta.type_graph.concept_model
 
@@ -38,137 +38,62 @@ class RagsGraphBuilder(object):
                               rag: RAG):
         success, hit_container, num_found = False, None, None
         if rag.rag_type == rags_core.GWAS:
-            gwas_file = GWASFile(rag.file_path)
+            gwas_file = GWASFile(file_path=rag.file_path)
             with GWASFileReader(gwas_file) as gwas_file_reader:
                 success, hit_container, num_found = gwas_file_reader.find_significant_hits(rag.p_value_cutoff)
         elif rag.rag_type == rags_core.MWAS:
-            mwas_file = MWASFile(rag.file_path)
+            mwas_file = MWASFile(file_path=rag.file_path)
             with MWASFileReader(mwas_file) as mwas_file_reader:
                 success, hit_container, num_found = mwas_file_reader.find_significant_hits(rag.p_value_cutoff)
 
         return success, hit_container, num_found
 
     def process_gwas_variants(self, gwas_hits: List[GWASHit]):
-        batch_of_hgvs = []
-        for gwas_hit in gwas_hits:
-            batch_of_hgvs.append(gwas_hit.hgvs)
-        self.normalizer.precache_sequence_variants_by_batch(batch_of_hgvs)
-
-        processed_nodes = []
+        nodes = []
         for gwas_hit in gwas_hits:
             curie_hgvs = f'HGVS:{gwas_hit.hgvs}'
-            logger.info(f'processing {curie_hgvs}')
+            #logger.info(f'processing {curie_hgvs}')
             variant_node = KNode(curie_hgvs, type=node_types.SEQUENCE_VARIANT)
-            self.normalizer.normalize(variant_node)
-            logger.info(f'normalized to {variant_node.id}')
+            nodes.append(variant_node)
 
+        logger.info(f'Normalizing {len(nodes)} nodes.')
+        self.genetics_normalizer.batch_normalize(nodes)
+        logger.info(f'Normalization complete.')
+
+        logger.info(f'Writing variant nodes to graph.')
+        for i, variant_node in enumerate(nodes):
             self.writer.write_node(variant_node)
-
             # important - the real curie being stored is what signifies the variant has been processed
-            gwas_hit.curie = variant_node.id
+            gwas_hits[i].curie = variant_node.id
+        logger.info(f'Writing variant nodes complete.')
+        logger.info(f'Finding variant to gene relationships.')
 
-            processed_nodes.append(variant_node)
+        all_results = self.genetics_services.get_variant_to_gene(ALL_VARIANT_TO_GENE_SERVICES, nodes)
+        for source_node_id, results in all_results.items():
+            # convert the simple edges and nodes to rags objects and write them to the graph
+            for (edge, node) in results:
+                gene_node = KNode(id=node.id, type=node.type, name=node.name, properties=node.properties)
+                self.rags_normalizer.normalize(gene_node)
+                self.writer.write_node(gene_node)
 
-        self.precache_variant_knowledge_by_batch(processed_nodes)
-        for node in processed_nodes:
-            self.process_gwas_variant_knowledge(node)
+                predicate = LabeledID(identifier=edge.predicate_id, label=edge.predicate_label)
+                gene_edge = KEdge(source_id=source_node_id,
+                                  target_id=gene_node.id,
+                                  provided_by=edge.provided_by,
+                                  ctime=edge.ctime,
+                                  original_predicate=predicate,
+                                  standard_predicate=predicate,
+                                  input_id=edge.input_id,
+                                  namespace=None,
+                                  project_id=self.project_id,
+                                  project_name=self.project_name,
+                                  properties=edge.properties)
+                self.writer.write_edge(gene_edge)
+            logger.info(f'added {len(results)} variant relationships for {source_node_id}')
 
         self.writer.flush()
 
-        return len(processed_nodes)
-
-    def process_gwas_variant_knowledge(self, variant_node: KNode):
-        logger.info(f'processing variant relationships for {variant_node.id}')
-
-        all_results = []
-        for service_key in ALL_VARIANT_TO_GENE_SERVICES:
-            cache_key = f'{service_key}.sequence_variant_to_gene({variant_node.id})'
-            results = self.cache.get(cache_key)
-            if results is None:
-                results = self.genetics_services.get_variant_to_gene(service_key,
-                                                                     variant_node.id,
-                                                                     variant_node.synonyms)
-                self.cache.set(cache_key, results)
-            all_results.extend(results)
-
-        # convert the simple edges and nodes to rags objects and write them to the graph
-        for (edge, node) in all_results:
-            gene_node = KNode(id=node.id, type=node.type, name=node.name, properties=node.properties)
-            self.normalizer.normalize(gene_node)
-            self.writer.write_node(gene_node)
-
-            predicate = LabeledID(identifier=edge.predicate_id, label=edge.predicate_label)
-            gene_edge = KEdge(source_id=edge.source_id,
-                              target_id=edge.target_id,
-                              provided_by=edge.provided_by,
-                              ctime=edge.ctime,
-                              original_predicate=predicate,
-                              standard_predicate=predicate,
-                              input_id=edge.input_id,
-                              namespace=None,
-                              project_id=self.project_id,
-                              project_name=self.project_name,
-                              properties=edge.properties)
-            self.writer.write_edge(gene_edge)
-        logger.info(f'added {len(all_results)} variant relationships for {variant_node.id}')
-
-    # batch precache any sequence variant data
-    def precache_variant_knowledge_by_batch(self, variant_nodes: list):
-        # init the return value
-        ret_val = None
-        try:
-            for variant_node in variant_nodes:
-                # check if myvariant key exists in cache, otherwise add it to buffer for batch processing
-                cache_results = self.cache.get(f'{MYVARIANT}.sequence_variant_to_gene({variant_node.id})')
-                if cache_results is None:
-                    uncached_variant_annotation_nodes.append(variant_node)
-
-                    # if there is enough in the variant annotation batch process them and empty the array
-                    if len(uncached_variant_annotation_nodes) == 1000:
-                        self.prepopulate_variant_annotation_cache(uncached_variant_annotation_nodes)
-                        uncached_variant_annotation_nodes = []
-
-            # if there are remainder variant node entries left to process
-            if uncached_variant_annotation_nodes:
-                self.prepopulate_variant_annotation_cache(uncached_variant_annotation_nodes)
-
-        except Exception as e:
-            logger.error(f'Exception caught. Exception: {e}')
-            ret_val = e
-        # return to the caller
-        return ret_val
-
-    #######
-    # process_variant_annotation_cache - processes an array of un-cached variant nodes.
-    #######
-    def prepopulate_variant_annotation_cache(self, batch_of_nodes: list) -> bool:
-        # init the return value, presume failure
-        ret_val = False
-
-        # convert to format for genetics service
-        variant_dict = {}
-        for node in batch_of_nodes:
-            variant_dict[node.id] = node.synonyms
-        batch_annotations = self.genetics_services.batch_sequence_variant_to_gene(MYVARIANT, variant_dict)
-
-        # do we have anything to process
-        if len(batch_annotations) > 0:
-            # open a connection to the redis cache DB
-            with self.cache.get_pipeline() as redis_pipe:
-                # for each variant
-                for seq_var_curie, annotations in batch_annotations.items():
-                    # assemble the redis key
-                    key = f'{MYVARIANT}.sequence_variant_to_gene({seq_var_curie})'
-
-                    # add the key and data to the list to execute
-                    self.cache.set(key, annotations, redis_pipe)
-
-                # write the records out to the cache DB
-                redis_pipe.execute()
-                ret_val = True
-
-        # return to the caller
-        return ret_val
+        return len(nodes)
 
     def process_gwas_associations(self,
                                   gwas_rag: RAG,
@@ -179,7 +104,7 @@ class RagsGraphBuilder(object):
         predicate = LabeledID(identifier=f'RO:0002609', label=f'related_to')
         gwas_file = GWASFile(file_path=gwas_rag.file_path)
         gwas_node = KNode(gwas_rag.as_node_curie, name=gwas_rag.as_node_label, type=gwas_rag.as_node_type)
-        self.normalizer.normalize(gwas_node)
+        self.rags_normalizer.normalize(gwas_node)
 
         if not gwas_rag.written:
             self.writer.write_node(gwas_node)
@@ -223,7 +148,7 @@ class RagsGraphBuilder(object):
         for mwas_hit in mwas_hits:
             if not mwas_hit.curie:
                 metabolite_node = KNode(mwas_hit.original_curie, name=mwas_hit.original_label, type=node_types.CHEMICAL_SUBSTANCE)
-                self.normalizer.normalize(metabolite_node)
+                self.rags_normalizer.normalize(metabolite_node)
                 self.writer.write_node(metabolite_node)
 
                 mwas_hit.curie = metabolite_node.id
@@ -243,7 +168,7 @@ class RagsGraphBuilder(object):
         predicate = LabeledID(identifier=f'RO:0002609', label=f'related_to')
         mwas_file = MWASFile(file_path=mwas_rag.file_path)
         mwas_node = KNode(mwas_rag.as_node_curie, name=mwas_rag.as_node_label, type=mwas_rag.as_node_type)
-        self.normalizer.normalize(mwas_node)
+        self.rags_normalizer.normalize(mwas_node)
 
         if not mwas_rag.written:
             self.writer.write_node(mwas_node)
@@ -292,11 +217,11 @@ class RagsGraphBuilder(object):
                               project_id=None,
                               project_name=None):
         # TODO standardize the predicate with the a service
-        #if self.concept_model:
-        #    standard_predicate = self.concept_model.standardize_relationship(predicate)
-        #else:
-        #    logger.warning('GWAS builder: concept_model was missing, predicate standardization failed')
-        #    standard_predicate = predicate
+        # if self.concept_model:
+        #     standard_predicate = self.concept_model.standardize_relationship(predicate)
+        # else:
+        #     logger.warning('GWAS builder: concept_model was missing, predicate standardization failed')
+        #     standard_predicate = predicate
         standard_predicate = predicate
 
         provided_by = 'RAGS_Builder'
@@ -304,7 +229,7 @@ class RagsGraphBuilder(object):
         if strength:
             props['strength'] = strength
 
-        ctime = time.time()
+        ctime = int(time.time())
         new_edge = KEdge(source_id=source_node_id,
                          target_id=associated_node_id,
                          provided_by=provided_by,

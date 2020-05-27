@@ -25,10 +25,7 @@ Set up these required environment variables.
 
 Create the text file: `<workspace>/rags.env`, parallel to the repository, and copy the following settings there. 
 
-Change them as needed for your set up or use these defaults. 
-
-In either case, you'll need to supply your own values for the secret variables at the end.
-
+Change them as needed for your set up or use these defaults.
 
 ```
 #################### RAGS Environmental Variables ####################
@@ -45,6 +42,8 @@ NEO4J_HEAP_MEMORY=8G
 NEO4J_HEAP_MEMORY_INIT=8G
 NEO4J_CACHE_MEMORY=5G
 NEO4J_READONLY=False
+NEO4J_PASSWORD=yourpassword
+
 #RAGS_BASE_GRAPH_URL=None
 RAGS_BASE_GRAPH_URL=https://robokopkg.renci.org/latest-graph.db
 
@@ -52,6 +51,13 @@ RAGS_BASE_GRAPH_URL=https://robokopkg.renci.org/latest-graph.db
 RAGS_CACHE_HOST=rags_cache
 RAGS_CACHE_PORT=6380
 RAGS_CACHE_DB=0
+RAGS_CACHE_PASSWORD=yourpassword
+
+# Genetics Cache - Redis
+ROBO_GENETICS_CACHE_HOST=rags_cache
+ROBO_GENETICS_CACHE_PORT=6380
+ROBO_GENETICS_CACHE_DB=1
+ROBO_GENETICS_CACHE_PASSWORD=yourpassword
 
 # RAGS Application
 RAGS_APP_HOST=rags_builder
@@ -60,13 +66,9 @@ RAGS_APP_PORT=80
 # Service Endpoints
 NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/get_normalized_nodes
 
-########################################################
-####################### Secrets ########################
-NEO4J_PASSWORD=*******
-RAGS_CACHE_PASSWORD=*******
 ```
 
-You can modify the following values to best fit your hardware. [Read more](https://neo4j.com/developer/guide-performance-tuning/).
+If you have memory issues with large data sets, you can modify these values to best utilize your hardware. [Read more](https://neo4j.com/developer/guide-performance-tuning/).
 
 ```
 NEO4J_HEAP_MEMORY

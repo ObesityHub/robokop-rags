@@ -106,7 +106,7 @@ def create_project_with_rags(project_db: RagsProjectDB):
                           file_path='./sample_data/sample_sugen4.gz',
                           has_tabix=True)
     project_db.create_rag(project_id=project_id,
-                          rag_name="Testing MWAS 5",
+                          rag_name="Testing MWAS",
                           rag_type=rags_core.MWAS,
                           as_node_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
                           as_node_curie='MONDO:0011122',
@@ -174,7 +174,8 @@ def test_build_rags(project_db: RagsProjectDB):
     db_project = project_db.get_project_by_id(project_id)
     test_project = RagsProject(db_project, project_db)
     test_project.prep_rags()
-    test_project.build_rags()
+    result = test_project.build_rags()
+    assert result['success'] is True
 
     rags = project_db.get_rags(project_id)
     for r in rags:
@@ -182,4 +183,3 @@ def test_build_rags(project_db: RagsProjectDB):
         assert r.written
         hits = project_db.get_unprocessed_gwas_hits(project_id)
         assert len(hits) == 0
-
