@@ -10,10 +10,10 @@ services:
     environment:
       - RAGS_DATA_DIR=/rags/data
     volumes:
-      - ./rags_app:/rags/rags_app/
+      - ./rags_app:/rags/rags_app
       - ../logs:/rags/logs
       - ../rags_projects:/rags/projects
-      - ../rags_data:/rags/data
+      - "${RAGS_DATA_MOUNTED_VOLUME}:/rags/data"
     ports:
       - "${RAGS_APP_PORT}:${RAGS_APP_PORT}"
 
@@ -49,3 +49,5 @@ services:
     ports:
       - "${RAGS_CACHE_PORT}:${RAGS_CACHE_PORT}"
     command: redis-server --port ${RAGS_CACHE_PORT} --requirepass ${RAGS_CACHE_PASSWORD}
+    volumes:
+      - ../rags_cache/:/data

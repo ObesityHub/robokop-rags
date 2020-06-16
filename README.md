@@ -62,6 +62,7 @@ ROBO_GENETICS_CACHE_PASSWORD=yourpassword
 # RAGS Application
 RAGS_APP_HOST=rags_builder
 RAGS_APP_PORT=80
+RAGS_DATA_MOUNTED_VOLUME=../rags_data
 
 # Service Endpoints
 NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/get_normalized_nodes
