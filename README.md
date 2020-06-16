@@ -38,14 +38,14 @@ NEO4J_HOST=rags_graph
 NEO4J_HTTP_PORT=7474
 NEO4J_HTTPS_PORT=7473
 NEO4J_BOLT_PORT=7687
-NEO4J_HEAP_MEMORY=8G
-NEO4J_HEAP_MEMORY_INIT=8G
-NEO4J_CACHE_MEMORY=5G
+NEO4J_HEAP_MEMORY=6G
+NEO4J_HEAP_MEMORY_INIT=6G
+NEO4J_CACHE_MEMORY=4G
 NEO4J_READONLY=False
 NEO4J_PASSWORD=yourpassword
 
 #RAGS_BASE_GRAPH_URL=None
-RAGS_BASE_GRAPH_URL=https://robokopkg.renci.org/latest-graph.db
+RAGS_BASE_GRAPH_URL=https://robokopkg.renci.org/normalize_graph+genetics.dump.db
 
 # Cache - Redis
 RAGS_CACHE_HOST=rags_cache
@@ -68,7 +68,7 @@ NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/get_normaliz
 
 ```
 
-If you have memory issues with large data sets, you can modify these values to best utilize your hardware. [Read more](https://neo4j.com/developer/guide-performance-tuning/).
+If you have memory issues or crashes, you can modify these values to best utilize your hardware. [Read more](https://neo4j.com/developer/guide-performance-tuning/).
 
 ```
 NEO4J_HEAP_MEMORY
