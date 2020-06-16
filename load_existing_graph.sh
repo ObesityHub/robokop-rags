@@ -2,13 +2,16 @@
 # make sure this directory exists, otherwise we might fail on the first time through
 mkdir -p "$RAGS_HOME"/neo4j_data/databases/graph.db
 
-# if we have a base graph URL, grab it from the URL
+# if the base graph URL setting is on and no graph is found, grab it from the URL
 if [ "$RAGS_BASE_GRAPH_URL" != "None" ]; then
-    echo "loading graph at $RAGS_BASE_GRAPH_URL"
-    curl -o "$RAGS_HOME/neo4j_data/graph.db.latest.dump" "$RAGS_BASE_GRAPH_URL"
+    if ! test -f "$RAGS_HOME/neo4j_data/graph.db.latest.dump"; then
+        echo "downloading graph from $RAGS_BASE_GRAPH_URL"
+        curl -o "$RAGS_HOME/neo4j_data/graph.db.latest.dump" "$RAGS_BASE_GRAPH_URL"
+    fi
 fi
 
-# check to make sure we have a dump file
+# call a script to load the dump file into the neo4j graph
+# this will create the neo4j container if it doesn't exist yet
 if test -f "$RAGS_HOME/neo4j_data/graph.db.latest.dump"; then
     ./rags_graph/scripts/reload.sh -c ./rags_graph/scripts/docker-compose-backup.yml
 else
