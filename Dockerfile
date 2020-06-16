@@ -1,4 +1,4 @@
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.7
+FROM tiangolo/uvicorn-gunicorn-fastapi:python3.8
 
 ARG UID=1000
 ARG GID=1000
@@ -10,10 +10,6 @@ ENV RAGS_HOME=/rags
 
 COPY ./rags_app /rags/rags_app
 RUN pip install -r /rags/rags_app/requirements.txt --src /usr/local/src
-
-WORKDIR /rags/
-RUN git clone https://github.com/ObesityHub/robokop-genetics.git
-RUN pip install /rags/robokop-genetics
 
 ENV PYTHONPATH="$PYTHONPATH:/rags/rags_app"
 WORKDIR /rags/rags_app
