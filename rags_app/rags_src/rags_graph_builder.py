@@ -68,10 +68,10 @@ class RagsGraphBuilder(object):
         logger.info(f'Writing variant nodes complete.')
         logger.info(f'Finding variant to gene relationships.')
 
-        all_results = []
+        all_results = {}
         node_chunks = [nodes[i: i + 1000] for i in range(0, len(nodes), 1000)]
         for chunk in node_chunks:
-            all_results.extend(self.genetics_services.get_variant_to_gene(ALL_VARIANT_TO_GENE_SERVICES, chunk))
+            all_results.update(self.genetics_services.get_variant_to_gene(ALL_VARIANT_TO_GENE_SERVICES, chunk))
         for source_node_id, results in all_results.items():
             # convert the simple edges and nodes to rags objects and write them to the graph
             for (edge, node) in results:
