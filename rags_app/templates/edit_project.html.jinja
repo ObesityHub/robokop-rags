@@ -13,6 +13,16 @@
      <h3 class="card-header">Edit Project - {{ project.name }}</h3>
      <div class="card-body">
         {% if rags %}
+        <form id="search_for_hits_form" method="post" action="/search/{{ project.id }}">
+            Find and view the significant associations for this project first, without writing to a graph:
+            <button href="/project/{{ project.id }}" type="submit" class="btn btn-secondary">Search For Hits</button>
+        </form>
+        <hr />
+        <form id="build_graph_form" method="post" action="/build/{{ project.id }}">
+            Write the associations to the graph DB (may take a long time depending on the size of your data):
+            <button type="submit" class="btn btn-secondary">Build Graph</button>
+        </form>
+        <hr />
         <div class="table-responsive">
           <table class="table table-striped table-sm">
               <thead>
@@ -59,25 +69,21 @@
           </table>
         </div>
         {% endif %}
+        <hr/>
+        <div class="row">
+            <p>Enter information for a single association study: </p>
+        </div>
         <div class="row">
             <button type="button" class="btn btn-secondary" data-toggle="modal" data-backdrop="static" data-target="#addRagModal">+ Add an Association Study</button>
         </div>
-        <hr />
-        {% if rags %}
+        <hr/>
         <div class="row">
-        <form id="search_for_hits_form" method="post" action="/search/{{ project.id }}">
-            <button href="/project/{{ project.id }}" type="submit" class="btn btn-secondary">Search For Hits</button>
-            Find and view the significant associations for this project first, without writing to a graph.
-        </form>
+            <p>Or use a file upload to add many studies at once: </p>
         </div>
-        <hr />
         <div class="row">
-        <form id="build_graph_form" method="post" action="/build/{{ project.id }}">
-            <button type="submit" class="btn btn-secondary">Build Graph</button>
-            Write the associations to the graph DB.
-        </form>
+            <button type="button" class="btn btn-secondary" data-toggle="modal" data-backdrop="static" data-target="#addRagFileModal">+ Add Studies by File</button>
         </div>
-        {% endif %}
+        <hr/>
      </div>
   </div>
 </div>
@@ -91,7 +97,7 @@
         </button>
       </div>
       <div class="modal-body">
-      <form id="add-build-form" method="post" action="#" role="form">
+      <form id="add-rag-form" method="post" action="#" role="form">
           <div class="form-group">
             <label for="new_rag_name">Association Study Name</label>
             <input type="text" class="form-control" id="new_rag_name" name="new_rag_name" placeholder="Enter a name" required>
@@ -143,6 +149,29 @@
           <p></p>
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-primary float-right">Save RAG</button>
+      </form>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="addRagFileModal" tabindex="-1" role="dialog" aria-labelledby="addRagFileModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addRagFileModalLabel">Add Association Studies</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+      <form id="add-rag-file-form" enctype="multipart/form-data" method="post" action="#" role="form">
+          <div class="form-group">
+            <label for="uploaded_rags_file">Select the file with RAGS info:</label>
+            <input name="uploaded_rags_file" type="file" required />
+          </div>
+          <p></p>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary float-right">Upload RAGS Info</button>
       </form>
       </div>
     </div>

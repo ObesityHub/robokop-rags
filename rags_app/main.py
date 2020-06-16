@@ -1,8 +1,10 @@
-from fastapi import Depends, FastAPI, HTTPException, Form
+from fastapi import Depends, FastAPI, HTTPException, Form, UploadFile, File
 from starlette.requests import Request
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 import os
+import csv
+import pandas as pd
 
 from app_database import SessionLocal, engine
 
@@ -97,13 +99,66 @@ def get_projects_for_display(rags_project_db: RagsProjectDB):
 
 
 @app.get("/project/{project_id}")
-def edit_project(project_id: int, request: Request, rags_project_db: RagsProjectDB = Depends(get_db)):
+def edit_project(project_id: int,
+                 request: Request,
+                 rags_project_db: RagsProjectDB = Depends(get_db)):
     template_context = {"request": request}
     if not rags_project_db.project_exists_by_id(project_id):
         template_context["error_message"] = f"Oh No. That project seems to be missing from the database."
         return templates.TemplateResponse("error.html.jinja", template_context)
 
     return get_edit_project_view_template(rags_project_db, project_id, template_context)
+
+
+@app.post("/project/{project_id}")
+def add_rags_by_file(request: Request,
+                     project_id: int,
+                     uploaded_rags_file: UploadFile = File(...),
+                     rags_project_db: RagsProjectDB = Depends(get_db)):
+    template_context = {"request": request}
+    if not rags_project_db.project_exists_by_id(project_id):
+        template_context["error_message"] = f"Oh No. That project seems to be missing from the database."
+        return templates.TemplateResponse("error.html.jinja", template_context)
+
+    try:
+        dataframe = pd.read_csv(uploaded_rags_file.file, header=0)
+        error_message = ""
+        for i, row in dataframe.iterrows():
+            new_rag_name = row["rag_name"]
+            if rags_project_db.rag_exists(project_id, new_rag_name):
+                error_message += f'A RAG with the name ({new_rag_name}) already exists in this project.\n'
+            new_rag_type = row["rag_type"]
+            as_node_curie = row["associated_node_id"]
+            as_node_type = row["associated_node_type"]
+            as_node_label = row["associated_node_label"]
+            p_value_cutoff = float(row["p_value_cutoff"])
+            file_path = row["file_path"]
+            max_p_value = float(row["max_p_value"]) if "max_p_value" in row else None
+            has_tabix = False
+            if "has_tabix" in row:
+                if row["has_tabix"] is True:
+                    has_tabix = True
+
+            real_file_path = f'{os.environ["RAGS_DATA_DIR"]}/{file_path}'
+            if not rags_project_db.create_rag(project_id=project_id,
+                                              rag_name=new_rag_name,
+                                              rag_type=new_rag_type,
+                                              as_node_type=as_node_type,
+                                              as_node_curie=as_node_curie,
+                                              as_node_label=as_node_label,
+                                              p_value_cutoff=p_value_cutoff,
+                                              max_p_value=max_p_value,
+                                              file_path=real_file_path,
+                                              has_tabix=has_tabix):
+                error_message += f'Error creating {new_rag_name}.\n'
+        if error_message:
+            template_context["error_message"] = "Errors:\n" + error_message
+
+        return get_edit_project_view_template(rags_project_db, project_id, template_context)
+
+    except (KeyError, TypeError, ValueError) as e:
+        template_context["error_message"] = f"Oh No. Error parsing the rags project file: {e}"
+        return templates.TemplateResponse("error.html.jinja", template_context)
 
 
 @app.post("/project/{project_id}")
@@ -126,7 +181,7 @@ def add_rag(request: Request,
         return templates.TemplateResponse("error.html.jinja", template_context)
 
     if rags_project_db.rag_exists(project_id, new_rag_name):
-        template_context["error_message"] = f'A RAG with that name ({new_rag_name}) already exists.'
+        template_context["error_message"] = f'A RAG with that name ({new_rag_name}) already exists in this project.'
         return get_edit_project_view_template(rags_project_db, project_id, template_context)
     else:
         real_file_path = f'{os.environ["RAGS_DATA_DIR"]}/{file_path}'
@@ -225,23 +280,26 @@ def project_query_view(project_id: int, query_id:int, request: Request, rags_pro
 
     rags_graph_db = RagsGraphDB()
     if query_id == 1:
-        custom_query = f"match (a:{node_types.SEQUENCE_VARIANT})-[r:related_to{{project_id: {project_id}}}]-(b) return distinct a.id, r.namespace, r.p_value ORDER BY r.p_value"
+        custom_query = f"match (s:{node_types.SEQUENCE_VARIANT})<-[r:related_to{{project_id: {project_id}}}]-(b) return distinct s.id, r.namespace, b.id, r.p_value ORDER BY r.p_value"
         results = rags_graph_db.query_the_graph(custom_query, limit=50)
         template_context["project_query"] = custom_query + " (limited to 50 results)"
         template_context["project_query_results"] = results
-        template_context["project_query_headers"] = ["Variant", "Association Study", "P Value"]
+        template_context["project_query_headers"] = ["Variant", "Association Study", "Associated with", "p-value"]
     elif query_id == 2:
-        custom_query = f"match (a:{node_types.CHEMICAL_SUBSTANCE})-[r:related_to{{project_id: {project_id}}}]-(b) return distinct a.id, r.namespace, r.p_value ORDER BY r.p_value"
+        custom_query = f"match (c:{node_types.CHEMICAL_SUBSTANCE})<-[r:related_to{{project_id: {project_id}}}]-(b) return distinct c.id, r.namespace, b.id, r.p_value ORDER BY r.p_value"
         results = rags_graph_db.query_the_graph(custom_query, limit=50)
         template_context["project_query"] = custom_query + " (limited to 50 results)"
         template_context["project_query_results"] = results
-        template_context["project_query_headers"] = ["Metabolite", "Association Study", "P Value"]
+        template_context["project_query_headers"] = ["Metabolite", "Association Study", "Associated with", "p-value"]
     elif query_id == 3:
-        custom_query = f"MATCH (c:chemical_substance)--(g:gene)--(v:sequence_variant)-[x]-(d:disease_or_phenotypic_feature)-[y]-(c) WHERE x.p_value < 1e-5 AND y.p_value < 1e-6 RETURN d.id, c.id, y.p_value, v.id, x.p_value, g.id"
+        custom_query = f"MATCH (s:{node_types.SEQUENCE_VARIANT})<-[r1:related_to{{project_id: {project_id}}}]-(d:{node_types.DISEASE_OR_PHENOTYPIC_FEATURE})-[r2:related_to{{project_id: {project_id}}}]-(c:{node_types.CHEMICAL_SUBSTANCE})-[r3:related_to{{project_id: {project_id}}}]-(s) return s.id, r1.p_value, d.id, r2.p_value, c.id, r3.p_value ORDER BY r1.p_value"
         results = rags_graph_db.query_the_graph(custom_query, limit=50)
         template_context["project_query"] = custom_query + " (limited to 50 results)"
         template_context["project_query_results"] = results
-        template_context["project_query_headers"] = ["Phenotype", "Chemical", "Chem p-value", "Sequence Variant", "Variant p-value", "Gene"]
+        template_context["project_query_headers"] = ["Variant", "Var-Pheno p-value", "Phenotype", "Pheno-Chemical p-value", "Chemical", "Chemical-Var p-value"]
+    elif query_id == 4:
+        custom_query = f"MATCH (c:chemical_substance)--(g:gene)--(v:sequence_variant)-[x{{project_id: {project_id}}}]-(d:disease_or_phenotypic_feature)-[y]-(c) WHERE x.p_value < 1e-5 AND y.p_value < 1e-6 RETURN d.id, c.id, y.p_value, v.id, x.p_value, g.id"
+
 
     return get_project_query_view(rags_project_db, project_id, template_context)
 
