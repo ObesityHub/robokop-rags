@@ -97,7 +97,7 @@
         </button>
       </div>
       <div class="modal-body">
-      <form id="add-rag-form" method="post" action="#" role="form">
+      <form id="add-rag-form" method="post" action="/project/add_rag/{{ project.id }}" role="form">
           <div class="form-group">
             <label for="new_rag_name">Association Study Name</label>
             <input type="text" class="form-control" id="new_rag_name" name="new_rag_name" placeholder="Enter a name" required>
@@ -164,7 +164,7 @@
         </button>
       </div>
       <div class="modal-body">
-      <form id="add-rag-file-form" enctype="multipart/form-data" method="post" action="#" role="form">
+      <form id="add-rag-file-form" enctype="multipart/form-data" method="post" action="/project/add_rags/{{ project.id }}" role="form">
           <div class="form-group">
             <label for="uploaded_rags_file">Select the file with RAGS info:</label>
             <input name="uploaded_rags_file" type="file" required />

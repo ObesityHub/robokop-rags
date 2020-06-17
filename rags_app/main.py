@@ -110,7 +110,7 @@ def edit_project(project_id: int,
     return get_edit_project_view_template(rags_project_db, project_id, template_context)
 
 
-@app.post("/project/{project_id}")
+@app.post("/project/add_rags/{project_id}")
 def add_rags_by_file(request: Request,
                      project_id: int,
                      uploaded_rags_file: UploadFile = File(...),
@@ -161,7 +161,7 @@ def add_rags_by_file(request: Request,
         return templates.TemplateResponse("error.html.jinja", template_context)
 
 
-@app.post("/project/{project_id}")
+@app.post("/project/add_rag/{project_id}")
 def add_rag(request: Request,
             project_id: int,
             new_rag_name: str = Form(...),
