@@ -78,17 +78,19 @@ NEO4J_CACHE_MEMORY
 ```
 
 ### Set up a Knowledge Graph
-Specify the URL of a knowledge graph in your environment settings. The default will load our latest Robokop Knowledge Graph. Setting it to "None" indicates that a local graph will be used.
+Specify the URL of a knowledge graph in your environment settings. The default will load our latest Robokop Knowledge Graph.
 
 ```
 RAGS_BASE_GRAPH_URL=https://robokopkg.renci.org/latest-graph.db
-or
-RAGS_BASE_GRAPH_URL=None
 ```
 
-Alternatively, if you already have a knowledge graph from a Neo4j 3.5 admin dump, copy your dump file and rename it so it matches the path below. Create the neo4j_data directory if it doesn't exist.
+Alternatively, if you already have a knowledge graph from a Neo4j 3.5 admin dump, move your dump file and rename it so that it matches the path below. Create the neo4j_data directory if it doesn't exist.
 ```
 <workspace>/neo4j_data/graph.db.latest.dump
+```
+When using your own knowledge graph, set the environment setting to None.
+```
+RAGS_BASE_GRAPH_URL=None
 ```
 
 
