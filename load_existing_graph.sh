@@ -13,6 +13,7 @@ fi
 # call a script to load the dump file into the neo4j graph
 # this will create the neo4j container if it doesn't exist yet
 if test -f "$RAGS_HOME/neo4j_data/graph.db.latest.dump"; then
+    echo "Graph back up found, loading now..."
     ./rags_graph/scripts/reload.sh -c ./rags_graph/scripts/docker-compose-backup.yml
 else
     echo "Error: No dump file found at ../neo4j_data/graph.db.latest.dump"

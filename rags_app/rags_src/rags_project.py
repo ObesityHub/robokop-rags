@@ -54,13 +54,17 @@ class RagsProject:
 
         return {"success": True, "success_message": "All rags searched for significant hits."}
 
-    def build_rags(self):
+    def build_rags(self, force_rebuild: bool = False):
         logger.info('About to build rags!')
         self.init_builder()
 
         # Normalize and process everything needed for the sequence variants.
         # Write all of that to the graph.
-        unprocessed_gwas_hits = self.project_db.get_unprocessed_gwas_hits(self.project_id)
+        if force_rebuild:
+            unprocessed_gwas_hits = self.project_db.get_all_gwas_hits(self.project_id)
+        else:
+            unprocessed_gwas_hits = self.project_db.get_unprocessed_gwas_hits(self.project_id)
+
         if unprocessed_gwas_hits:
             logger.info('About to process sequence variants!')
             num_processed_gwas_hits = self.rags_builder.process_gwas_variants(unprocessed_gwas_hits)
@@ -72,11 +76,15 @@ class RagsProject:
 
         # Normalize process everything needed for the metabolites.
         # Write all of that to the graph.
-        metabolite_hits = self.project_db.get_unprocessed_mwas_hits(self.project_id)
+        if force_rebuild:
+            metabolite_hits = self.project_db.get_all_mwas_hits(self.project_id)
+        else:
+            metabolite_hits = self.project_db.get_unprocessed_mwas_hits(self.project_id)
+
         if metabolite_hits:
             logger.info('About to process metabolites!')
-            processed_mwas_hits = self.rags_builder.process_mwas_metabolites(metabolite_hits)
-            logger.info(f'{len(processed_mwas_hits)} new sequence variants processed and added to the graph.')
+            num_processed_mwas_hits = self.rags_builder.process_mwas_metabolites(metabolite_hits)
+            logger.info(f'{len(num_processed_mwas_hits)} new sequence variants processed and added to the graph.')
             # the process_mwas_metabolites function may change MWASHit ORM objects which would be committed to the DB here
             self.project_db.commit_orm_transactions()
         else:
@@ -86,34 +94,38 @@ class RagsProject:
         # variant nodes are already written
         # next go into the files and find/write the associations
         all_rags = self.project_db.get_rags(self.project_id)
-        all_gwas_hits = self.project_db.get_all_gwas_hits(self.project_id)
-        unprocessed_gwas_hits = self.project_db.get_unprocessed_gwas_hits(self.project_id)
-        all_mwas_hits = self.project_db.get_all_mwas_hits(self.project_id)
-        unprocessed_mwas_hits = self.project_db.get_unprocessed_mwas_hits(self.project_id)
 
         total_num_rags = len(all_rags)
+        unprocessed_gwas_hits = None
+        unprocessed_mwas_hits = None
         for rag_counter, rag in enumerate(all_rags, 1):
             logger.info(f'Starting rag associations {rag_counter} of {total_num_rags}: {rag.rag_name}')
             if rag.rag_type == MWAS:
-                if rag.written:
+                if rag.written and not force_rebuild:
+                    # it's been written previously, only add the new associations
+                    unprocessed_mwas_hits = self.project_db.get_unprocessed_mwas_hits(self.project_id)
                     self.rags_builder.process_mwas_associations(rag, unprocessed_mwas_hits)
                 else:
+                    # otherwise write all of the associations
+                    all_mwas_hits = self.project_db.get_all_mwas_hits(self.project_id)
                     self.rags_builder.process_mwas_associations(rag, all_mwas_hits)
 
             elif rag.rag_type == GWAS:
-                if rag.written:
-                    # it's been written previously, only add the new associations
+                if rag.written and not force_rebuild:
+                    unprocessed_gwas_hits = self.project_db.get_unprocessed_gwas_hits(self.project_id)
                     self.rags_builder.process_gwas_associations(rag, unprocessed_gwas_hits)
                 else:
-                    # otherwise write all of the associations
+                    all_gwas_hits = self.project_db.get_all_gwas_hits(self.project_id)
                     self.rags_builder.process_gwas_associations(rag, all_gwas_hits)
             rag.written = True
 
-        for gwas_hit in unprocessed_gwas_hits:
-            gwas_hit.written = True
+        if unprocessed_gwas_hits:
+            for gwas_hit in unprocessed_gwas_hits:
+                gwas_hit.written = True
 
-        for mwas_hit in unprocessed_mwas_hits:
-            mwas_hit.written = True
+        if unprocessed_mwas_hits:
+            for mwas_hit in unprocessed_mwas_hits:
+                mwas_hit.written = True
 
         self.project_db.commit_orm_transactions()
 

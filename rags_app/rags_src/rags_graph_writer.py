@@ -90,6 +90,9 @@ class BufferedWriter(object):
 
 def export_edge_chunk(tx, edge_list, edge_label):
 
+    if not edge_label[0].isalpha():
+        edge_label = f'a_{edge_label}'
+
     cypher = f"""UNWIND $batches as row
             MATCH (a:{node_types.ROOT_ENTITY} {{id: row.source_id}}),(b:{node_types.ROOT_ENTITY} {{id: row.target_id}})
             MERGE (a)-[r:{edge_label} {{id: apoc.util.md5([a.id, b.id, '{edge_label}', row.namespace, row.project_id]), predicate_id: row.standard_id}}]->(b)

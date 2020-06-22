@@ -23,6 +23,11 @@
             <button type="submit" class="btn btn-secondary">Build Graph</button>
         </form>
         <hr />
+        <form id="query_graph_form" method="get" action="/project_query/{{ project.id }}">
+            After you build the graph, query it for results:
+            <button type="submit" class="btn btn-secondary">Query Graph</button>
+        </form>
+        <hr />
         <div class="table-responsive">
           <table class="table table-striped table-sm">
               <thead>

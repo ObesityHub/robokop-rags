@@ -78,17 +78,23 @@ NEO4J_CACHE_MEMORY
 ```
 
 ### Set up a Knowledge Graph
-Specify the URL of a knowledge graph in your environment settings. The default will load our latest Robokop Knowledge Graph.
+There are two options for pre-loading a knowledge graph:
+
+##### Option A
+
+Specify the URL of a knowledge graph in your environment settings. The graph will be downloaded and incorporated automatically. The default will load our latest Robokop Knowledge Graph.
 
 ```
-RAGS_BASE_GRAPH_URL=https://robokopkg.renci.org/latest-graph.db
+RAGS_BASE_GRAPH_URL=http://robokopkg.renci.org/latest-graph.db
 ```
+
+##### Option B
 
 Alternatively, if you already have a knowledge graph from a Neo4j 3.5 admin dump, move your dump file and rename it so that it matches the path below. Create the neo4j_data directory if it doesn't exist.
 ```
 <workspace>/neo4j_data/graph.db.latest.dump
 ```
-When using your own knowledge graph, set the environment setting to None.
+When using your own knowledge graph, you must set the environment setting to None.
 ```
 RAGS_BASE_GRAPH_URL=None
 ```
@@ -121,7 +127,7 @@ Put your association study files in this directory:
 ```
 $ <workspace>/rags_data/
 ```
-You can move the sample files over if you'd like to see examples:
+You can move some sample files over if you'd like to see examples:
 ```
 $ cd <workspace>
 $ cp ./robokop-rags/rags_app/test/sample_data/* ./rags_data/
@@ -130,7 +136,25 @@ Use the web application interface at:
 ```
 http://localhost
 ```
-Then view the Neo4j graph directly at:
+To load your own association studies into the graph, create a project.
+```
+http://localhost/projects/
+```
+Clicking the gear icon next to your project switches to the edit project view.
+
+Here you can enter the information needed to create RAGs (Association Graphs).
+
+You can create a csv file with all of the information for your RAGs. (Need more info here). For example, to load the sample data you can click (+ Add Studies by File). Select the sample_rags.csv file.
+
+You can also enter information for one study at a time. (+ Add an Association Study)
+
+After you enter the RAGs information, click Search For Hits to scan the files for associations.
+
+Finally, click Build Graph to load your association studies into the graph.
+
+You can click Query Graph to view results using our preconfigured queries.
+
+You can also view the Neo4j graph directly at:
 ```
 http://localhost:7474/browser/
 ```
