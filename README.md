@@ -69,14 +69,6 @@ NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/get_normaliz
 
 ```
 
-If you have memory issues or crashes, you can modify these values to best utilize your hardware. [Read more](https://neo4j.com/developer/guide-performance-tuning/).
-
-```
-NEO4J_HEAP_MEMORY
-NEO4J_HEAP_MEMORY_INIT
-NEO4J_CACHE_MEMORY
-```
-
 ### Set up a Knowledge Graph
 There are two options for pre-loading a knowledge graph:
 
@@ -120,6 +112,25 @@ Finally, start the docker containers:
 ```
 $ docker-compose up
 ```
+
+#### Memory Issues and Crashes
+
+If the rags_graph neo4j container fails to start, or crashes, you may have issues with memory management.
+
+You can modify these values in the rags.env file to best utilize your hardware. [Read more](https://neo4j.com/developer/guide-performance-tuning/).
+
+```
+NEO4J_HEAP_MEMORY
+NEO4J_HEAP_MEMORY_INIT
+NEO4J_CACHE_MEMORY
+```
+
+You may also have to configure the amount of memory available for Docker. 
+
+Docker will need to be able to use at least the amount specified by NEO4J_HEAP_MEMORY plus NEO4J_CACHE_MEMORY.
+
+If using Docker Desktop, this is easy to configure in preferences. See [here](https://docs.docker.com/docker-for-mac/#resources).
+
 
 ## Using the Application
 
