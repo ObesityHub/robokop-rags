@@ -50,4 +50,4 @@ services:
       - "${RAGS_CACHE_PORT}:${RAGS_CACHE_PORT}"
     command: redis-server --port ${RAGS_CACHE_PORT} --requirepass ${RAGS_CACHE_PASSWORD}
     volumes:
-      - ../rags_cache/:/data
+      - ../rags_cache:/data
