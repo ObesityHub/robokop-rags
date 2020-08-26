@@ -295,7 +295,7 @@ class GWASFileReader:
         try:
             self.initialize_reader()
         except OSError as e:
-            logger.debug(f'Error reading file {self.gwas_file.file_path}: {e}')
+            logger.error(f'Error reading file {self.gwas_file.file_path}: {e}')
             return False, None, None
 
         variant_container = SequenceVariantContainer()
@@ -335,12 +335,13 @@ class GWASFileReader:
                         sig_variants_failed_conversion += 1
 
             except (IndexError, ValueError) as e:
-                logger.debug(f'Error reading file {self.gwas_file.file_path}, on line {line_counter}: {e}')
+                logger.error(f'Error reading file {self.gwas_file.file_path}, on line {line_counter}: {e}')
 
         gwas_filename = self.gwas_file.file_path.rsplit('/', 1)[-1]
         logger.info(f'Finding variants in {gwas_filename} complete. {line_counter} lines searched.')
         logger.info(f'In {gwas_filename} {sig_variants_found} significant variants found and converted.')
-        logger.info(f'In {gwas_filename} {sig_variants_failed_conversion} other significant variants failed to convert to hgvs.')
+        if sig_variants_failed_conversion > 0:
+            logger.error(f'In {gwas_filename} {sig_variants_failed_conversion} other significant variants failed to convert to hgvs.')
         return True, variant_container, sig_variants_found
 
     def convert_vcf_to_hgvs(self, reference_genome, reference_patch, chromosome, position, ref_allele, alt_allele):
@@ -428,7 +429,7 @@ class GWASFileReader:
                         and (sequence_variant.ref == line[self.ref_index]):
                     return line
         except tabix.TabixError:
-            logger.info(f'OBH_Error: TabixError ({self.gwas_file.file_path}) chromosome({sequence_variant.chrom}) positions({position_start}-{position_end})')
+            logger.error(f'OBH_Error: TabixError ({self.gwas_file.file_path}) chromosome({sequence_variant.chrom}) positions({position_start}-{position_end})')
 
         return None
 
