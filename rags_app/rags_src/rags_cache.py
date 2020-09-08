@@ -47,10 +47,10 @@ class Cache:
         self.prefix = prefix
         try:
             if redis_password:
-                self.redis = redis.StrictRedis(host=redis_host, port=int(redis_port), db=int(redis_db),
+                self.redis = redis.Redis(host=redis_host, port=int(redis_port), db=int(redis_db),
                                                password=redis_password)
             else:
-                self.redis = redis.StrictRedis(host=redis_host, port=int(redis_port), db=int(redis_db))
+                self.redis = redis.Redis(host=redis_host, port=int(redis_port), db=int(redis_db))
             self.redis.get('x')
             logger.info(f"Cache connected to redis at {redis_host}:{redis_port}/{redis_db}")
         except Exception as e:
