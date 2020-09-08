@@ -1,6 +1,6 @@
 
 from rags_src.util import Text
-
+from rags_src.node_types import ROOT_ENTITY
 from typing import NamedTuple
 
 
@@ -17,11 +17,12 @@ class LabeledID(NamedTuple):
 
 class KNode(object):
 
-    def __init__(self, id: str, type: str, name: str = None, properties: dict = None):
+    def __init__(self, id: str, type: str, name: str = None, properties: dict = None, all_types: frozenset = None):
         self.id = id
         self.type = type
         self.name = name
         self.properties = properties if properties else {}
+        self.all_types = all_types if all_types else frozenset([type, ROOT_ENTITY])
 
         # Synonyms are a list of synonymous curies
         self.synonyms = set()

@@ -40,15 +40,9 @@ class BufferedWriter(object):
     def write_node(self, node):
         if node.id in self.written_nodes:
             return
-        if node.name is None or node.name == '':
-            logger.warning(f"Writing Node {node.id}, it's missing a label")
-        else:
-            #logger.info(f"Writing Node {node.id}, label=({node.name})")
-            pass
 
-        #self.export_graph.add_type_labels(node)
         self.written_nodes.add(node.id)
-        node_queue = self.node_queues[node.type]
+        node_queue = self.node_queues[node.all_types]
         node_queue.append(node)
         if len(node_queue) == self.node_buffer_size:
             self.flush()
@@ -67,9 +61,9 @@ class BufferedWriter(object):
 
     def flush(self):
         with self.graph_db.get_session() as session:
-            for node_type in self.node_queues:
-                session.write_transaction(export_node_chunk, self.node_queues[node_type], node_type)
-                self.node_queues[node_type] = []
+            for node_type_set in self.node_queues:
+                session.write_transaction(export_node_chunk, self.node_queues[node_type_set], node_type_set)
+                self.node_queues[node_type_set] = []
 
             for edge_label in self.edge_queues:
                 session.write_transaction(export_edge_chunk, self.edge_queues[edge_label],
@@ -138,12 +132,12 @@ def export_edge_chunk(tx, edge_list, edge_label):
             logger.warn(f"Unable to map predicate for edge {edge.original_predicate}  {edge}")
 
 
-def export_node_chunk(tx, node_list, node_type):
+def export_node_chunk(tx, node_list, node_type_set):
     cypher = f"""UNWIND {{batches}} AS batch
-                MERGE (a:{node_types.ROOT_ENTITY} {{id: batch.id}})
-                ON CREATE SET a:{node_types.ROOT_ENTITY}
-                ON CREATE SET a:{node_type}
-                ON CREATE SET a += batch.properties"""
+                MERGE (a:{node_types.ROOT_ENTITY} {{id: batch.id}}) """
+    for export_label in node_type_set:
+        cypher += f"ON CREATE SET a:{export_label} "
+    cypher += "ON CREATE SET a += batch.properties"
     #logger.warning(f'using cypher: {cypher}')
     batch = []
     for n in node_list:
