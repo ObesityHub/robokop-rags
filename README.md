@@ -1,13 +1,13 @@
 # Robokop Association Graphs
 
-Robokop Association Graphs or RAGS is a tool for uploading results from association studies into a graph database for comparison and analysis. 
+Robokop Association Graphs or RAGs is a tool for uploading results from association studies into a graph database for comparison and analysis. 
 
 ## Installation
 
 ### Prerequisites
-[Install Docker](https://www.docker.com/get-started) if not installed on your computer. 
+[Install Docker](https://www.docker.com/get-started) if it is not installed already. 
 
-Make a ``<workspace>`` directory. ``<workspace>`` can be any directory, for example: ~/rags_workspace/
+Make a new directory for RAGs (referred to as ``<workspace>``). ``<workspace>`` can be any directory, for example: ~/rags_workspace/
 
 ```
 $ mkdir <workspace>
@@ -23,15 +23,24 @@ $ git clone https://github.com/ObesityHub/robokop-rags.git
 
 Set up these required environment variables.
 
-Create the text file: `<workspace>/rags.env`, parallel to the repository, and copy the following settings there. 
+Create the settings file: `<workspace>/rags.env`
 
-Change them as needed for your set up or use these defaults.
+Copy the following settings there. Change them as needed for your set up or use these defaults.
 
 ```
 #################### RAGS Environmental Variables ####################
 
 # Docker settings
 COMPOSE_PROJECT_NAME=rags
+
+# RAGS Application
+RAGS_APP_PORT=80
+RAGS_APP_DATA_DIR=../rags_data
+
+# Use a graph db dump from the url
+RAGS_BASE_GRAPH_URL=https://robokopkg.renci.org/normalize_graph+genetics.dump.db
+# Or switch to this for a local or empty graph
+# RAGS_BASE_GRAPH_URL=None
 
 # Graph DB - Neo4j
 NEO4J_HOST=rags_graph
@@ -44,9 +53,6 @@ NEO4J_CACHE_MEMORY=4G
 NEO4J_READONLY=False
 NEO4J_PASSWORD=yourpassword
 
-#RAGS_BASE_GRAPH_URL=None
-RAGS_BASE_GRAPH_URL=https://robokopkg.renci.org/normalize_graph+genetics.dump.db
-
 # Cache - Redis
 RAGS_CACHE_HOST=rags_cache
 RAGS_CACHE_PORT=6380
@@ -58,11 +64,6 @@ ROBO_GENETICS_CACHE_HOST=rags_cache
 ROBO_GENETICS_CACHE_PORT=6380
 ROBO_GENETICS_CACHE_DB=1
 ROBO_GENETICS_CACHE_PASSWORD=yourpassword
-
-# RAGS Application
-RAGS_APP_HOST=rags_builder
-RAGS_APP_PORT=80
-RAGS_DATA_MOUNTED_VOLUME=../rags_data
 
 # Service Endpoints
 NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/get_normalized_nodes
@@ -93,7 +94,7 @@ RAGS_BASE_GRAPH_URL=None
 
 
 ## Starting the Application
-Run the following to make sure you're in the right place, and your terminal is set up with the environment variables.
+Run the following commands to prepare your environment. The script will utilize the environment variables you set earlier.
 
 ```
 $ cd <workspace>/robokop-rags
@@ -134,16 +135,27 @@ If using Docker Desktop, this is easy to configure in preferences. See [here](ht
 
 ## Using the Application
 
-Put your association study files in this directory:
+First move your association study files into a directory accessible to RAGs.
+
+By default, you can use the following directory. It will be created for you when you start the application.
 ```
 $ <workspace>/rags_data/
+```
+Alternatively, you can specify any directory you'd like by changing this environment variable to your own path:
+```
+RAGS_APP_DATA_DIR=/example/path/on_your_machine
 ```
 You can move some sample files over if you'd like to see examples:
 ```
 $ cd <workspace>
 $ cp ./robokop-rags/rags_app/test/sample_data/* ./rags_data/
 ```
-Use the web application interface at:
+OR if you used a different data directory
+```
+$ cp ./robokop-rags/rags_app/test/sample_data/* /example/path/on_your_machine/
+```
+
+Then use the web application interface at:
 ```
 http://localhost
 ```
@@ -180,6 +192,5 @@ $ docker exec -it rags_app bash
 ```
 Run the tests:
 ```
-$ cd test
 $ pytest
 ```

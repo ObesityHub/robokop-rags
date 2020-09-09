@@ -13,7 +13,7 @@ services:
       - ./rags_app:/rags/rags_app
       - ../logs:/rags/logs
       - ../rags_projects:/rags/projects
-      - "${RAGS_DATA_MOUNTED_VOLUME}:/rags/data"
+      - "${RAGS_APP_DATA_DIR}:/rags/data"
     ports:
       - "${RAGS_APP_PORT}:${RAGS_APP_PORT}"
 
