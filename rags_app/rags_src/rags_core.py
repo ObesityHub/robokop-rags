@@ -19,9 +19,9 @@ class RAG:
     id: int
     rag_name: str
     rag_type: str
-    as_node_type: str
-    as_node_curie: str
-    as_node_label: str
+    trait_type: str
+    trait_curie: str
+    trait_label: str
     p_value_cutoff: float
     file_path: str
     max_p_value: float = None
@@ -51,7 +51,6 @@ class GWASHit(SignificantHit):
     ref: str
     alt: str
     curie: str = ''
-    written: bool = False
 
 
 @dataclass
@@ -59,7 +58,6 @@ class MWASHit(SignificantHit):
     original_curie: str
     original_label: str = ''
     curie: str = ''
-    written: bool = False
 
 
 class AllHitsContainer(object):

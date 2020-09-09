@@ -69,9 +69,9 @@ class RagsProjectDB(object):
                    rag_name: str,
                    rag_type: str,
                    file_path: str,
-                   as_node_type: str,
-                   as_node_curie: str,
-                   as_node_label: str,
+                   trait_type: str,
+                   trait_curie: str,
+                   trait_label: str,
                    p_value_cutoff: float,
                    max_p_value: float,
                    has_tabix: bool = False):
@@ -79,9 +79,9 @@ class RagsProjectDB(object):
         new_rag = rags_db_models.RAG(rag_name=rag_name,
                                      rag_type=rag_type,
                                      project_id=project_id,
-                                     as_node_type=as_node_type,
-                                     as_node_curie=as_node_curie,
-                                     as_node_label=as_node_label,
+                                     trait_type=trait_type,
+                                     trait_curie=trait_curie,
+                                     trait_label=trait_label,
                                      p_value_cutoff=p_value_cutoff,
                                      max_p_value=max_p_value,
                                      file_path=file_path,
@@ -150,7 +150,6 @@ class RagsProjectDB(object):
             filter(rags_db_models.MWASHit.project_id == project_id).\
             filter(rags_db_models.MWASHit.curie == '').all()
 
-
     def save_hits(self, project_id: int, rag: RAG, hits_container: SignificantHitsContainer):
         if rag.rag_type == rags_core.GWAS:
             for hit in hits_container.iterate():
@@ -168,8 +167,7 @@ class RagsProjectDB(object):
                                               pos=hit.pos,
                                               ref=hit.ref,
                                               alt=hit.alt,
-                                              curie=hit.curie,
-                                              written=hit.written)
+                                              curie=hit.curie)
         self.db.add(new_gwas_hit)
         if not delay_commit:
             self.db.commit()
@@ -179,6 +177,7 @@ class RagsProjectDB(object):
         new_mwas_hit = rags_db_models.MWASHit(project_id=project_id,
                                               rag_id=rag_id,
                                               original_curie=hit.original_curie,
+                                              original_label=hit.original_label,
                                               curie=hit.curie)
         self.db.add(new_mwas_hit)
         if not delay_commit:

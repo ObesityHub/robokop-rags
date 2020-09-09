@@ -25,17 +25,17 @@ class RAG(Base):
     file_path = Column(String)
     rag_name = Column(String)
     rag_type = Column(String)
-    as_node_type = Column(String)
-    as_node_curie = Column(String)
-    as_node_label = Column(String)
+    trait_type = Column(String)
+    trait_curie = Column(String)
+    trait_label = Column(String)
     p_value_cutoff = Column(Float)
     max_p_value = Column(Float)
     searched = Column(Boolean)
-    written = Column(Boolean)
     validated = Column(Boolean)
 
     # this could be calculated with relations in the hits tables but lets store it as well for efficiency
     num_hits = Column(Integer)
+    num_associations = Column(Boolean)
 
     # should rag type specific file info be separate? we'll simplify and use one table for now
     has_tabix = Column(Boolean)
@@ -58,7 +58,6 @@ class GWASHit(Base):
     ref = Column(String)
     alt = Column(String)
     curie = Column(String)
-    written = Column(Boolean)
 
     project_id = Column(Integer, ForeignKey(f'{PROJECTS_TABLE_NAME}.id'))
     rag_id = Column(Integer, ForeignKey(f'{RAGS_TABLE_NAME}.id'))
@@ -70,7 +69,6 @@ class MWASHit(Base):
     original_curie = Column(String)
     original_label = Column(String)
     curie = Column(String)
-    written = Column(Boolean)
 
     project_id = Column(Integer, ForeignKey(f'{PROJECTS_TABLE_NAME}.id'))
     rag_id = Column(Integer, ForeignKey(f'{RAGS_TABLE_NAME}.id'))

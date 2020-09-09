@@ -23,6 +23,11 @@
             <button type="submit" class="btn btn-secondary">Build Graph</button>
         </form>
         <hr />
+        <form id="validate_graph_form" method="post" action="/validate/{{ project.id }}">
+            Validate that the associations found were successfully written to Neo4j:
+            <button type="submit" class="btn btn-secondary">Validate Graph</button>
+        </form>
+        <hr />
         <form id="query_graph_form" method="get" action="/project_query/{{ project.id }}">
             After you build the graph, query it for results:
             <button type="submit" class="btn btn-secondary">Query Graph</button>
@@ -48,7 +53,7 @@
                 <tr>
                   <td>{{ rag.rag_name }}</td>
                   <td>{{ rag.rag_type }}</td>
-                  <td>{{ rag.as_node_label }}</td>
+                  <td>{{ rag.trait_label }}</td>
                   <td>{{ rag.p_value_cutoff }}</td>
                   <td>{{ rag.searched }}</td>
                   <td>{{ rag.num_hits }}</td>
@@ -56,7 +61,7 @@
                   <td>{{ rag.validated }}</td>
                   <td>
                     <form id="delete-rag-form" method="post" action="/delete_rag/" role="form">
-                    <button type="button" class="btn btn-secondary" onclick="return confirm('File: {{ rag.file_path }}\nNode Info: {{rag.as_node_curie}} ({{rag.as_node_type}})\nMax P Value: {{rag.max_p_value}}');">
+                    <button type="button" class="btn btn-secondary" onclick="return confirm('File: {{ rag.file_path }}\nNode Info: {{rag.trait_curie}} ({{rag.trait_type}})\nMax P Value: {{rag.max_p_value}}');">
                     <svg class="bi bi-info-fill" width="1em" height="1em" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                       <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.93-9.412l-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533l1.002-4.705zM10 7.5a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
                     </svg>
@@ -102,7 +107,7 @@
         </button>
       </div>
       <div class="modal-body">
-      <form id="add-rag-form" method="post" action="/project/add_rag/{{ project.id }}" role="form">
+      <form id="add-rag-form" method="post" action="/add_rag/{{ project.id }}" role="form">
           <div class="form-group">
             <label for="new_rag_name">Association Study Name</label>
             <input type="text" class="form-control" id="new_rag_name" name="new_rag_name" placeholder="Enter a name" required>
@@ -117,21 +122,22 @@
             </select>
           </div>
           <div class="form-group">
-            <label for="as_node_type">Associated Node Type</label>
-            <select class="form-control" id="as_node_type" name="as_node_type">
-            <option selected>Choose the associated node type</option>
+            <label for="trait_type">Associated Trait Type</label>
+            <select class="form-control" id="trait_type" name="trait_type">
+            <option selected>Choose the type of the associated trait</option>
             {% for node_type in node_type_list %}
               <option value="{{ node_type }}">{{ node_type }}</option>
             {% endfor %}
             </select>
           </div>
           <div class="form-group">
-            <label for="as_node_curie">Associated Node Curie</label>
-            <input type="text" class="form-control" id="as_node_curie" name="as_node_curie" placeholder="Enter the associated node CURIE">
+            <label for="trait_curie">Associated Node Curie</label>
+            <input type="text" class="form-control" id="trait_curie" name="trait_curie" placeholder="Enter a CURIE for the associated trait">
+            <small id="curieHelp" class="form-text text-muted">Enter a curie that is an identifier for the associated trait. ie MONDO:0011122.</small>
           </div>
           <div class="form-group">
-            <label for="as_node_label">Associated Node Label</label>
-            <input type="text" class="form-control" id="as_node_label" name="as_node_label" placeholder="Enter the associated node label">
+            <label for="trait_label">Associated Node Label</label>
+            <input type="text" class="form-control" id="trait_label" name="trait_label" placeholder="Enter a label for the associated trait">
           </div>
           <div class="form-group">
             <label for="p_value_cutoff">P Value Threshold</label>
@@ -169,7 +175,7 @@
         </button>
       </div>
       <div class="modal-body">
-      <form id="add-rag-file-form" enctype="multipart/form-data" method="post" action="/project/add_rags/{{ project.id }}" role="form">
+      <form id="add-rag-file-form" enctype="multipart/form-data" method="post" action="/add_rags/{{ project.id }}" role="form">
           <div class="form-group">
             <label for="uploaded_rags_file">Select the file with RAGS info:</label>
             <input name="uploaded_rags_file" type="file" required />
