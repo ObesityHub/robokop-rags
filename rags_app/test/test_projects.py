@@ -15,6 +15,11 @@ if os.path.exists(TEST_DATABASE_LOCATION):
 
 rags_db_models.Base.metadata.create_all(bind=test_database_engine)
 
+SAMPLE_DATA_DIR = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)),
+    'sample_data',
+    )
+
 @pytest.fixture()
 def project_db():
     try:
@@ -68,52 +73,52 @@ def create_project_with_rags(project_db: RagsProjectDB):
     project_db.create_rag(project_id=project_id,
                           rag_name="Testing GWAS 1",
                           rag_type=rags_core.GWAS,
-                          as_node_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
-                          as_node_curie='MONDO:0011122',
-                          as_node_label='Obesity',
+                          trait_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
+                          trait_curie='MONDO:0011122',
+                          trait_label='Obesity',
                           p_value_cutoff=0.005,
                           max_p_value=1,
-                          file_path='./sample_data/sample_sugen.gz',
+                          file_path=f'sample_sugen.gz',
                           has_tabix=True)
     project_db.create_rag(project_id=project_id,
                           rag_name="Testing GWAS 2",
                           rag_type=rags_core.GWAS,
-                          as_node_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
-                          as_node_curie='MONDO:0011122',
-                          as_node_label='Obesity',
+                          trait_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
+                          trait_curie='MONDO:0011122',
+                          trait_label='Obesity',
                           p_value_cutoff=0.005,
                           max_p_value=1,
-                          file_path='./sample_data/sample_sugen2.gz',
+                          file_path=f'sample_sugen2.gz',
                           has_tabix=True)
     project_db.create_rag(project_id=project_id,
                           rag_name="Testing GWAS 3",
                           rag_type=rags_core.GWAS,
-                          as_node_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
-                          as_node_curie='MONDO:0011122',
-                          as_node_label='Obesity',
+                          trait_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
+                          trait_curie='MONDO:0011122',
+                          trait_label='Obesity',
                           p_value_cutoff=0.005,
                           max_p_value=1,
-                          file_path='./sample_data/sample_sugen3.gz',
+                          file_path=f'sample_sugen3.gz',
                           has_tabix=True)
     project_db.create_rag(project_id=project_id,
                           rag_name="Testing GWAS 4",
                           rag_type=rags_core.GWAS,
-                          as_node_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
-                          as_node_curie='MONDO:0011122',
-                          as_node_label='Obesity',
+                          trait_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
+                          trait_curie='MONDO:0011122',
+                          trait_label='Obesity',
                           p_value_cutoff=0.005,
                           max_p_value=1,
-                          file_path='./sample_data/sample_sugen4.gz',
+                          file_path=f'sample_sugen4.gz',
                           has_tabix=True)
     project_db.create_rag(project_id=project_id,
                           rag_name="Testing MWAS",
                           rag_type=rags_core.MWAS,
-                          as_node_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
-                          as_node_curie='MONDO:0011122',
-                          as_node_label='Obesity',
+                          trait_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE,
+                          trait_curie='MONDO:0011122',
+                          trait_label='Obesity',
                           p_value_cutoff=0.005,
                           max_p_value=1,
-                          file_path='./sample_data/sample_mwas')
+                          file_path=f'sample_mwas')
     return project_id
 
 
@@ -128,11 +133,11 @@ def test_create_rags(project_db: RagsProjectDB):
 
     r = project_db.get_rag_by_name('Testing GWAS 1')
     assert r.rag_type == rags_core.GWAS
-    assert r.file_path == './sample_data/sample_sugen.gz'
+    assert r.file_path == f'sample_sugen.gz'
     assert r.p_value_cutoff == 0.005
-    assert r.as_node_curie == 'MONDO:0011122'
-    assert r.as_node_type == node_types.DISEASE_OR_PHENOTYPIC_FEATURE
-    assert r.as_node_label == 'Obesity'
+    assert r.trait_curie == 'MONDO:0011122'
+    assert r.trait_type == node_types.DISEASE_OR_PHENOTYPIC_FEATURE
+    assert r.trait_label == 'Obesity'
     assert r.searched is False
     assert r.written is False
     assert r.validated is False
