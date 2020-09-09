@@ -132,7 +132,7 @@ class MWASFileReader:
                 beta = float(association_line[beta_index])
                 return SimpleAssociation(p_value, beta)
             except ValueError as e:
-                logger.warning(f'OBH_Error: Bad p value or beta in file {self.gwas_file.file_path}: {e}')
+                logger.warning(f'Error: Bad p value or beta in file {self.gwas_file.file_path}: {e}')
         else:
             return None
 
@@ -411,7 +411,7 @@ class GWASFileReader:
                 beta = float(association_line[self.beta_index])
                 return SimpleAssociation(p_value, beta)
             except ValueError as e:
-                logger.warning(f'OBH_Error: Bad p value or beta in file {self.gwas_file.file_path}: {e}')
+                logger.warning(f'Error: Bad p value or beta in file {self.gwas_file.file_path}: {e}')
         else:
             return None
 
@@ -429,7 +429,7 @@ class GWASFileReader:
                         and (sequence_variant.ref == line[self.ref_index]):
                     return line
         except tabix.TabixError:
-            logger.error(f'OBH_Error: TabixError ({self.gwas_file.file_path}) chromosome({sequence_variant.chrom}) positions({position_start}-{position_end})')
+            logger.error(f'Error: TabixError ({self.gwas_file.file_path}) chromosome({sequence_variant.chrom}) positions({position_start}-{position_end})')
 
         return None
 
