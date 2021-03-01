@@ -17,23 +17,23 @@
               <thead>
                 <tr>
                   <th>Project</th>
-                  <th>Subgraphs</th>
-                  <th>Searched</th>
-                  <th>Written</th>
-                  <th>Validated</th>
+                  <th>GWAS Files</th>
+                  <th>GWAS Hits</th>
+                  <th>MWAS Files</th>
+                  <th>MWAS Hits</th>
                   <th>Errors</th>
-                  <th>Options</th>
+                  <th>(Query/Manage/Delete)</th>
                 </tr>
               </thead>
               <tbody>
                 {% for project in projects %}
                 <tr>
-                  <td>{{ project.name }}</td>
-                  <td>{{ project.num_rags }}</td>
-                  <td>{{ project.num_searched }}</td>
-                  <td>{{ project.num_written }}</td>
-                  <td>{{ project.num_validated }}</td>
-                  <td>{{ project.errors }}</td>
+                  <td><a href="/project/{{ project.id }}">{{ project.name }}</a></td>
+                  <td>{{ project.num_gwas_files }}</td>
+                  <td>{{ project.num_gwas_hits }}</td>
+                  <td>{{ project.num_mwas_files }}</td>
+                  <td>{{ project.num_mwas_hits }}</td>
+                  <td>{{ project.num_errors }}</td>
                   <td>
                     <form id="delete-project-form" method="post" action="/delete_project/" role="form">
                     <a href="/project_query/{{ project.id }}" type="button" role="button" class="btn btn-secondary">

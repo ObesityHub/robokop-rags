@@ -1,80 +1,122 @@
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from rags_src.util import Text
 
+# constants that correspond to node types in the biolink model
+TESTING_NODE = 'rags:Testing'
+CHEMICAL_SUBSTANCE = 'biolink:ChemicalSubstance'
+DISEASE = 'biolink:Disease'
+GENE = 'biolink:Gene'
+PHENOTYPIC_FEATURE = 'biolink:PhenotypicFeature'
+DISEASE_OR_PHENOTYPIC_FEATURE = 'biolink:DiseaseOrPhenotypicFeature'
+ROOT_ENTITY = 'biolink:NamedThing'
+SEQUENCE_VARIANT = 'biolink:SequenceVariant'
+
+# valid trait types for RAGs studies
+RAGS_TRAIT_TYPES = [
+    CHEMICAL_SUBSTANCE,
+    DISEASE,
+    PHENOTYPIC_FEATURE
+]
+
+# constants for RAGs study types
 GWAS = 'GWAS'
 MWAS = 'MWAS'
 
-available_rag_types = [
+# valid study types for RAGs
+RAGS_STUDY_TYPES = [
     GWAS,
     MWAS
 ]
 
-@dataclass
-class Project:
-    id: int
-    name: str
-
-@dataclass
-class RAG:
-    id: int
-    rag_name: str
-    rag_type: str
-    trait_type: str
-    trait_curie: str
-    trait_label: str
-    p_value_cutoff: float
-    file_path: str
-    max_p_value: float = None
-    searched: bool = False
-    written: bool = False
-    validated: bool = False
-    num_hits: int = None
-    has_tabix: bool = True
+# constants for errors
+RAGS_ERROR_SEARCHING = 40001
+RAGS_ERROR_BUILDING = 40002
+RAGS_ERROR_NORMALIZATION = 40003
 
 
 @dataclass
-class SimpleAssociation:
+class RAGsAssociation:
     p_value: float
     beta: float
 
 
 @dataclass
-class SignificantHit:
-    id: int
+class RAGsNode:
+    id: str
+    type: str
+    name: str = None
+    properties: dict = field(default_factory=dict)
+    all_types: frozenset = field(default_factory=frozenset)
+    synonyms: set = field(default_factory=set)
+
+    def get_synonyms_by_prefix(self, prefix: str):
+        return set(filter(lambda x: Text.get_curie(x).upper() == prefix.upper(), self.synonyms))
+
+    def __hash__(self):
+        return hash(self.id)
 
 
 @dataclass
+class RAGsEdge:
+    id: str
+    subject_id: str
+    object_id: str
+    original_object_id: str
+    predicate: str
+    relation: str
+    provided_by: str
+    namespace: str = None
+    project_id: str = None
+    project_name: str = None
+    properties: dict = field(default_factory=dict)
+
+    def __key(self):
+        return self.subject_id, self.object_id, self.original_object_id, self.predicate, self.namespace
+
+    def __hash__(self):
+        return hash(self.__key())
+
+
+@dataclass
+class SignificantHit:
+    id: int
+    original_id: str
+    original_name: str = None
+    normalized: bool = False
+    normalized_id: str = None
+    normalized_name: str = None
+    written: bool = False
+
+@dataclass
 class GWASHit(SignificantHit):
-    hgvs: str
-    chrom: str
-    pos: int
-    ref: str
-    alt: str
-    curie: str = ''
+    hgvs: str = None
+    chrom: str = None
+    pos: int = None
+    ref: str = None
+    alt: str = None
 
 
 @dataclass
 class MWASHit(SignificantHit):
-    original_curie: str
-    original_label: str = ''
-    curie: str = ''
+    pass
 
 
 class AllHitsContainer(object):
 
     def __init__(self):
-        # a dictionary of containers holding the significant hits for each rag type (gwas, mwas..)
+        # a dictionary of containers holding the significant hits for each study type (gwas, mwas..)
         self.all_containers = {}
         # initialize the proper hit bucket for each type if it isn't provided
-        for rag_type in available_rag_types:
-            if rag_type not in self.all_containers:
-                self.all_containers[rag_type] = hits_container_factory(rag_type)
+        for study_type in RAGS_STUDY_TYPES:
+            if study_type not in self.all_containers:
+                self.all_containers[study_type] = hits_container_factory(study_type)
 
-    def get_hits_container_by_type(self, rag_type: str):
-        return self.all_containers[rag_type]
+    def get_hits_container_by_type(self, study_type: str):
+        return self.all_containers[study_type]
 
-    def add_hit_by_type(self, rag_type: str, hit: SignificantHit):
-        self.all_containers[rag_type].add_hit(hit)
+    def add_hit_by_type(self, study_type: str, hit: SignificantHit):
+        self.all_containers[study_type].add_hit(hit)
 
 
 def bucket_default_dict():
@@ -82,10 +124,10 @@ def bucket_default_dict():
 
 
 @staticmethod
-def hits_container_factory(rags_type):
-    if rags_type == GWAS:
+def hits_container_factory(study_type):
+    if study_type == GWAS:
         return SequenceVariantContainer()
-    elif rags_type == MWAS:
+    elif study_type == MWAS:
         return MetaboliteContainer()
 
 
@@ -147,7 +189,7 @@ class MetaboliteContainer(SignificantHitsContainer):
         self.metabolites = {}
 
     def add_hit(self, new_metabolite: MWASHit):
-        self.metabolites[new_metabolite.original_curie] = new_metabolite
+        self.metabolites[new_metabolite.original_id] = new_metabolite
 
     def iterate(self):
         for k, v in self.metabolites.items():

@@ -1,4 +1,4 @@
-import rags_src.node_types as node_types
+from rags_src.rags_core import ROOT_ENTITY, RAGsEdge, RAGsNode
 from rags_src.util import LoggingUtil, Text
 from rags_src.rags_graph_db import RagsGraphDB
 
@@ -6,7 +6,8 @@ from collections import defaultdict
 import logging
 import os
 
-logger = LoggingUtil.init_logging("rags.export", logging.INFO, format='medium',
+logger = LoggingUtil.init_logging("rags.rags_graph_writer", logging.INFO,
+                                  format='medium',
                                   logFilePath=f'{os.environ["RAGS_HOME"]}/logs/')
 
 
@@ -28,17 +29,15 @@ class BufferedWriter(object):
         self.written_edges = defaultdict(lambda: defaultdict(set))
         self.node_queues = defaultdict(list)
         self.edge_queues = defaultdict(list)
-        self.node_buffer_size = 100
-        self.edge_buffer_size = 100
-        self.maxWrittenNodes = 100000
-        self.maxWrittenEdges = 100000
+        self.node_buffer_size = 10000
+        self.edge_buffer_size = 10000
         self.graph_db = graph_db
 
     def __enter__(self):
         return self
 
-    def write_node(self, node):
-        if node.id in self.written_nodes:
+    def write_node(self, node: RAGsNode):
+        if not node or node.id in self.written_nodes:
             return
 
         self.written_nodes.add(node.id)
@@ -47,14 +46,14 @@ class BufferedWriter(object):
         if len(node_queue) == self.node_buffer_size:
             self.flush()
 
-    def write_edge(self, edge):
-        if edge in self.written_edges[edge.source_id][edge.target_id]:
+    def write_edge(self, edge: RAGsEdge):
+        if edge in self.written_edges[edge.subject_id][edge.object_id]:
             return
         else:
-            self.written_edges[edge.source_id][edge.target_id].add(edge)
+            self.written_edges[edge.subject_id][edge.object_id].add(edge)
 
-        label = Text.snakify(edge.standard_predicate.label)
-        edge_queue = self.edge_queues[label]
+        #predicate = Text.snakify(edge.predicate)
+        edge_queue = self.edge_queues[edge.predicate]
         edge_queue.append(edge)
         if len(edge_queue) >= self.edge_buffer_size:
             self.flush()
@@ -62,90 +61,61 @@ class BufferedWriter(object):
     def flush(self):
         with self.graph_db.get_session() as session:
             for node_type_set in self.node_queues:
-                session.write_transaction(export_node_chunk, self.node_queues[node_type_set], node_type_set)
+                session.write_transaction(write_batch_of_nodes,
+                                          self.node_queues[node_type_set],
+                                          node_type_set)
                 self.node_queues[node_type_set] = []
 
-            for edge_label in self.edge_queues:
-                session.write_transaction(export_edge_chunk, self.edge_queues[edge_label],
-                                          edge_label)
-                self.edge_queues[edge_label] = []
-
-            # clear the memory on a threshold boundary to avoid using up all memory when
-            # processing large data sets
-            if len(self.written_nodes) > self.maxWrittenNodes:
-                self.written_nodes.clear()
-
-            if len(self.written_edges) > self.maxWrittenEdges:
-                self.written_edges.clear()
+            for predicate in self.edge_queues:
+                session.write_transaction(write_batch_of_edges,
+                                          self.edge_queues[predicate],
+                                          predicate)
+                self.edge_queues[predicate] = []
 
     def __exit__(self, *args):
         self.flush()
 
 
-def export_edge_chunk(tx, edge_list, edge_label):
+def write_batch_of_edges(tx, batch_of_edges: list, predicate):
 
-    cypher = f"""UNWIND $batches as row
-            MATCH (a:{node_types.ROOT_ENTITY} {{id: row.source_id}}),(b:{node_types.ROOT_ENTITY} {{id: row.target_id}})
-            MERGE (a)-[r:{edge_label} {{id: apoc.util.md5([a.id, b.id, '{edge_label}', row.namespace, row.project_id]), predicate_id: row.standard_id}}]->(b)
-            ON CREATE SET r.edge_source = [row.provided_by]
-            ON CREATE SET r.relation_label = [row.original_predicate_label]
-            ON CREATE SET r.source_database=[row.database]
-            ON CREATE SET r.ctime=[row.ctime]
-            ON CREATE SET r.publications=row.publications
-            ON CREATE SET r.relation = [row.original_predicate_id]
-            ON CREATE SET r += row.properties
-            ON CREATE SET r.namespace=row.namespace
-            ON CREATE SET r.project_id=row.project_id
-            ON CREATE SET r.project_name=row.project_name
-            FOREACH (_ IN CASE WHEN row.provided_by in r.edge_source THEN [] ELSE [1] END |
-            SET r.edge_source = CASE WHEN EXISTS(r.edge_source) THEN r.edge_source + [row.provided_by] ELSE [row.provided_by] END
-            SET r.ctime = CASE WHEN EXISTS (r.ctime) THEN r.ctime + [row.ctime] ELSE [row.ctime] END
-            SET r.relation_label = CASE WHEN EXISTS(r.relation_label) THEN r.relation_label + [row.original_predicate_label] ELSE [row.original_predicate_label] END
-            SET r.source_database = CASE WHEN EXISTS(r.source_database) THEN r.source_database + [row.database] ELSE [row.database] END
-            SET r.predicate_id = row.standard_id
-            SET r.relation = CASE WHEN EXISTS(r.relation) THEN r.relation + [row.original_predicate_id] ELSE [row.original_predicate_id] END
-            SET r.publications = [pub in row.publications where not pub in r.publications ] + r.publications
-            SET r += row.properties
-            )"""
+    cypher = f"""UNWIND $edge_batch as edge
+            MATCH (a:`{ROOT_ENTITY}` {{id: edge.subject_id}}),(b:`{ROOT_ENTITY}` {{id: edge.object_id}})
+            MERGE (a)-[r:`{predicate}` {{project_id: edge.project_id, namespace: edge.namespace, input_id: edge.input_id}}]->(b)
+            SET r.project_name = edge.project_name
+            SET r.id=apoc.util.md5([a.id, b.id, '{predicate}'])
+            SET r.edge_source=edge.edge_source
+            SET r.source_database=edge.source_database
+            SET r.relation=edge.relation
+            SET r += edge.properties"""
 
-    batch = [{'source_id': edge.source_id,
-              'target_id': edge.target_id,
-              'provided_by': edge.provided_by,
-              'database': edge.provided_by.split('.')[0],
-              'ctime': edge.ctime,
-              'namespace': edge.namespace,
-              'project_id': edge.project_id if edge.project_id else None,
-              'project_name': edge.project_name if edge.project_name else None,
-              'standard_id': edge.standard_predicate.identifier,
-              'original_predicate_id': edge.original_predicate.identifier,
-              'original_predicate_label': edge.original_predicate.label,
-              'publication_count': len(edge.publications),
-              'publications': edge.publications[:1000],
-              'properties': edge.properties if edge.properties is not None else {}
-              }
-             for edge in edge_list]
+    edges_as_dicts = [{'subject_id': edge.subject_id,
+                       'object_id': edge.object_id,
+                       'input_id': edge.original_object_id,
+                       'relation': edge.relation,
+                       'edge_source': [edge.provided_by],
+                       'source_database': [edge.provided_by.split('.')[0]] if '.' in edge.provided_by else None,
+                       'namespace': edge.namespace if edge.namespace else None,
+                       'project_id': edge.project_id if edge.project_id else None,
+                       'project_name': edge.project_name if edge.project_name else None,
+                       'properties': edge.properties} for edge in batch_of_edges]
 
-    tx.run(cypher, {'batches': batch})
-
-    for edge in edge_list:
-        if edge.standard_predicate.identifier == 'GAMMA:0':
-            logger.warn(f"Unable to map predicate for edge {edge.original_predicate}  {edge}")
+    tx.run(cypher, {'edge_batch': edges_as_dicts})
 
 
-def export_node_chunk(tx, node_list, node_type_set):
-    cypher = f"""UNWIND {{batches}} AS batch
-                MERGE (a:{node_types.ROOT_ENTITY} {{id: batch.id}}) """
-    for export_label in node_type_set:
-        cypher += f"ON CREATE SET a:{export_label} "
-    cypher += "ON CREATE SET a += batch.properties"
-    #logger.warning(f'using cypher: {cypher}')
-    batch = []
-    for n in node_list:
+def write_batch_of_nodes(tx, batch_of_nodes, node_type_set):
+
+    cypher = f"""UNWIND $batch AS node
+                MERGE (a:`{ROOT_ENTITY}` {{id: node.id}}) """
+    for node_type in node_type_set:
+        cypher += f"ON CREATE SET a:`{node_type}` "
+    cypher += "ON CREATE SET a += node.properties"
+
+    node_dicts = []
+    for n in batch_of_nodes:
         n.properties['equivalent_identifiers'] = list(n.synonyms)
-        if n.name is not None:
-            n.properties['name'] = n.name
-            #logger.warning(f"Setting {n.id} name property to {n.name}")
-        export_node = {'id': n.id, 'name': n.name, 'properties': n.properties}
-        #logger.warning(f"Exporting {export_node}")
-        batch.append(export_node)
-    tx.run(cypher, {'batches': batch})
+        n.properties['category'] = list(node_type_set)
+        n.properties['name'] = n.name
+        export_node = {'id': n.id,  'properties': n.properties}
+        node_dicts.append(export_node)
+
+    tx.run(cypher, {'batch': node_dicts})

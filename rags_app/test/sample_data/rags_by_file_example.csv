@@ -1,6 +1,0 @@
-﻿rag_name,rag_type,associated_node_id,associated_node_type,associated_node_label,p_value_cutoff,max_p_value,file_path,has_tabix
-Sample RAG 1,GWAS,MONDO:0011122,disease,obesity disorder,0.005,1,sample_sugen.gz,TRUE
-Sample RAG 2,GWAS,PUBCHEM:11146967,chemical_substance,enylpalmitoyl2palmitoyl,0.005,1,sample_sugen2.gz,TRUE
-Sample RAG 3,GWAS,PUBCHEM:6426901,chemical_substance,methylbutyrylcarnitine,0.005,1,sample_sugen3.gz,TRUE
-Sample RAG 4,GWAS,PUBCHEM:27476,chemical_substance,N1-methyladenosine,0.005,1,sample_sugen4.gz,TRUE
-Sample MWAS,MWAS,MONDO:0011122,disease,obesity disorder,0.005,1,sample_mwas,FALSE

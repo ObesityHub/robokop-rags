@@ -1,0 +1,7 @@
+﻿study_name,study_type,trait_id,trait_type,trait_label,p_value_threshold,max_p_value,file_path,has_tabix
+Sample GWAS 1,GWAS,MONDO:0011122,biolink:Disease,obesity disorder,0.005,1,sample_sugen.gz,TRUE
+Sample GWAS 2,GWAS,PUBCHEM.COMPOUND:11146967,biolink:ChemicalSubstance,enylpalmitoyl2palmitoyl,0.005,1,sample_sugen2.gz,TRUE
+Sample GWAS 3,GWAS,PUBCHEM.COMPOUND:6426901,biolink:ChemicalSubstance,methylbutyrylcarnitine,0.005,1,sample_sugen3.gz,TRUE
+Sample GWAS 4,GWAS,PUBCHEM.COMPOUND:27476,biolink:ChemicalSubstance,N1-methyladenosine,0.005,1,sample_sugen4.gz,TRUE
+Sample MWAS,MWAS,MONDO:0011122,biolink:Disease,obesity disorder,0.005,1,sample_mwas,FALSE
+Sample Broken GWAS,GWAS,FAKECURIE:1,biolink:Disease,fake_disease,0.005,1,fake_file_name.gz,TRUE

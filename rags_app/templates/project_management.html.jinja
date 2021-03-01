@@ -1,0 +1,287 @@
+{% extends "skeleton.html.jinja" %}
+{% set current_page = "projects" %}
+{% block title %}Manage Project{% endblock %}
+{% block main %}
+<div class="projects_body">
+{% if success_message %}
+   <div class="alert alert-success" role="alert">{{ success_message }}</div>
+{% endif %}
+{% if error_messages %}
+{% for message in error_messages %}
+    <div class="alert alert-danger" role="alert">{{ message }}</div>
+{% endfor %}
+{% endif %}
+{% if warning_messages %}
+{% for message in warning_messages %}
+    <div class="alert alert-warning" role="alert">{{ message }}</div>
+{% endfor %}
+{% endif %}
+   <div class="card border-dark mb-3">
+     <h3 class="card-header">Manage Project - {{ project.name }} <button type="button" class="btn btn-secondary float-right" data-toggle="modal" data-backdrop="static" data-target="#viewInstructionsModal">View Instructions</button></h3>
+     <div class="card-body">
+        {% if not studies %}
+        <p>If this is your first time, you might want to check out the <a target="_blank" href="https://github.com/ObesityHub/robokop-rags#using-the-application">READ ME</a>.</p>
+        <p>Or click this button any time for instructions about Managing Projects: <button type="button" class="btn btn-secondary" data-toggle="modal" data-backdrop="static" data-target="#viewInstructionsModal">View Instructions</button></p>
+        {% endif %}
+        <form id="fake_form">
+            1) Set up your association studies:
+            <button type="button" class="btn btn-secondary" data-toggle="modal" data-backdrop="static" data-target="#addStudyModal">Add Study</button>
+            or <button type="button" class="btn btn-secondary" data-toggle="modal" data-backdrop="static" data-target="#addStudyFileModal">Add Studies by File</button>
+        </form>
+        {% if studies %}
+        <hr />
+        <form id="build_graph_form" method="post" action="/build/">
+             2) After you've added all of the association studies:
+            <button type="submit" class="btn btn-secondary">Build Graph</button>
+            (this may take a long time)
+            <input type="hidden" value="{{ project.id }}" name="project_id" />
+            <input type="hidden" value="0" name="force_rebuild" />
+        </form>
+        <hr />
+        <form id="query_graph_form" method="get" action="/project_query/{{ project.id }}">
+            3) After you build the graph, query it for results:
+            <button type="submit" class="btn btn-secondary">Query Graph</button>
+        </form>
+        <hr />
+        <form id="rebuild_graph_form" method="post" action="/build/">
+             4) If there is an issue with the graph rebuild the graph:
+            <button type="submit" class="btn btn-secondary">Rebuild Graph</button>
+            <input type="hidden" value="{{ project.id }}" name="project_id" />
+            <input type="hidden" value="1" name="force_rebuild" />
+        </form>
+        <div class="table-responsive">
+          <table class="table table-striped table-sm">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Trait</th>
+                  <th>Normalized Trait</th>
+                  <th>Sig. Associations</th>
+                  <th>Options</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for study in studies %}
+                <tr>
+                  <td>{{ study.study_name }}</td>
+                  <td>{{ study.study_type }}</td>
+                  <td>{{ study.original_trait_id }} ({{ study.original_trait_label }})</td>
+                  {% if study.trait_normalized %}
+                    {% if study.normalized_trait_id %}
+                    <td>{{ study.normalized_trait_id }} ({{ study.normalized_trait_label }})</td>
+                    {% else %}
+                    <td>Failed to Normalize</td>
+                    {% endif %}
+                  {% else %}
+                  <td>Pending</td>
+                  {% endif %}
+                  {% if study.num_hits == None %}
+                  <td>Pending</td>
+                  {% else %}
+                  <td>{{ study.num_hits }}</td>
+                  {% endif %}
+                  <td>
+                    <form id="delete-study-form" method="post" action="/delete_study/" role="form">
+                    {% if study.errors %}
+                    <button type="button" class="btn btn-danger" onclick='return confirm("{% for e in study.errors %}Error: {{ e.error_message }}\n\n{% endfor %}");'>
+                    <svg width="1.2em" height="1.2em" viewBox="0 0 16 16" class="bi bi-exclamation-square" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                      <path fill-rule="evenodd" d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                      <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+                    </svg>
+                    </button>
+                    {% endif %}
+                    <button type="button" class="btn btn-secondary" onclick="return confirm('File: {{ study.file_path }}\nP Value Cutoff: {{study.p_value_cutoff}}\nMax P Value: {{study.max_p_value}}');">
+                    <svg width="1.2em" height="1.2em" viewBox="0 0 16 16" class="bi bi-info-square" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                      <path fill-rule="evenodd" d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                      <path fill-rule="evenodd" d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                      <path d="M8.93 6.588l-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588z"/>
+                      <circle cx="8" cy="4.5" r="1"/>
+                    </svg>
+                    </button>
+                    <button name="study_id" value="{{ study.id }}" type="submit" type="button" class="btn btn-danger">
+                    <svg class="bi bi-trash-fill" width="1.2em" height="1.2em" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                      <path fill-rule="evenodd" d="M4.5 3a1 1 0 00-1 1v1a1 1 0 001 1H5v9a2 2 0 002 2h6a2 2 0 002-2V6h.5a1 1 0 001-1V4a1 1 0 00-1-1H12a1 1 0 00-1-1H9a1 1 0 00-1 1H4.5zm3 4a.5.5 0 01.5.5v7a.5.5 0 01-1 0v-7a.5.5 0 01.5-.5zM10 7a.5.5 0 01.5.5v7a.5.5 0 01-1 0v-7A.5.5 0 0110 7zm3 .5a.5.5 0 00-1 0v7a.5.5 0 001 0v-7z" clip-rule="evenodd"/>
+                    </svg>
+                    </button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+          </table>
+        </div>
+        {% endif %}
+     </div>
+  </div>
+</div>
+<div class="modal fade" id="viewInstructionsModal" tabindex="-1" role="dialog" aria-labelledby="viewInstructionsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="viewInstructionsModalLabel">Instructions</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <div class="container">
+            <div class="row">
+                <p>For more instructions and details, see the <a target="_blank" href="https://github.com/ObesityHub/robokop-rags#using-the-application">READ ME</a>.</p>
+            </div>
+            <div class="row">
+                <p>A project consists of one or more association studies.</p>
+            </div>
+            <div class="row">
+                <p>An association study consists of a file of association data and an associated trait.</p>
+            </div>
+            <div class="row">
+                <p>To add studies to a project, you'll need to specify the following parameters for each study:</p>
+                <div class="card">
+                    <div class="card-body">
+                        <p><b>Study Name</b> - a unique name for the study </p>
+                        <p><b>Study Type</b> - the type of study</p>
+                        <div class="form-group">
+                        <select class="form-control" id="example_study_types" name="example_study_types">
+                            <option selected>View a list of valid study types</option>
+                            {% for study_type in study_type_list %}
+                              <option value="{{ study_type }}">{{ study_type }}</option>
+                            {% endfor %}
+                        </select>
+                        </div>
+                        <p><b>Trait ID</b> - an identifier for the associated trait (a CURIE aka compact URI is preferred) </p>
+                        <p><b>Trait Label</b> - a human readable label for the associated trait</p>
+                        <p><b>Trait Type</b> - the semantic type that best describes the associated trait</p>
+                        <div class="form-group">
+                            <select class="form-control" id="example_trait_type" name="example_trait_type">
+                            <option selected>View a list of valid trait types</option>
+                            {% for trait_type in trait_type_list %}
+                              <option value="{{ trait_type }}">{{ trait_type }}</option>
+                            {% endfor %}
+                            </select>
+                        </div>
+                        <p><b>File Path</b> - the file path relative to the rags_data directory (for files directly inside of rags_data, the file name is enough)</p>
+                        <p><b>P Value Threshold</b> - the p value threshold below which associations will be considered significant</p>
+                        <p><b>Maximum P Value</b> - the maximum p value cutoff used when loading associations from other studies into the graph</p>
+                        <p><b>Has Tabix</b> - whether or not the file is indexed using Tabix (True or False)</p>
+                    </div>
+                </div>
+            </div>
+            <hr/>
+            <div class="row">
+                <p>There are two ways to enter this information:</p>
+            </div>
+            <div class="row">
+                <div class="card"><div class="card-body">
+                <p><b>Option 1)</b> If you only have a few association studies, you can enter the information for each study one at a time, by clicking the Add Study button.</p>
+                </div></div>
+            </div>
+            <div class="row">
+                <div class="card"><div class="card-body">
+                <p><b>Option 2)</b> If you have a lot of association studies, it might be easier to compile the information for all of them into a file. View an <a target="_blank" href="https://github.com/ObesityHub/robokop-rags/blob/master/rags_app/test/sample_data/rags_by_file_example.csv">example file</a>.</p>
+                <p>Create a csv (comma separated value) with the following headers:
+                study_name, study_type, trait_id, trait_label, trait_type, file_path, p_value_threshold, maximum_p_value, has_tabix(optional))</p>
+                <p>Enter the parameters for all of your association studies, with a different study on each line.</p>
+                <p>When you're done, click the Add Studies by File button to select and use the file.</p>
+                </div></div>
+            </div>
+        </div>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="addStudyModal" tabindex="-1" role="dialog" aria-labelledby="addStudyModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addStudyModalLabel">Add a New Association Study</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+      <form id="add-study-form" method="post" action="/add_study/" role="form">
+          <div class="form-group">
+            <label for="study_name">Study Name</label>
+            <input type="text" class="form-control" id="study_name" name="study_name" placeholder="Enter a name" required>
+          </div>
+          <div class="form-group">
+            <label for="study_type">Study Type</label>
+            <select class="form-control" id="study_type" name="study_type">
+            <option selected>Choose the study type</option>
+            {% for study_type in study_type_list %}
+              <option value="{{ study_type }}">{{ study_type }}</option>
+            {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="trait_type">Trait Type</label>
+            <select class="form-control" id="trait_type" name="trait_type">
+            <option selected>Choose the type of the associated trait</option>
+            {% for trait_type in trait_type_list %}
+              <option value="{{ trait_type }}">{{ trait_type }}</option>
+            {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="trait_id">Trait ID</label>
+            <input type="text" class="form-control" id="trait_id" name="trait_id" placeholder="Enter an ID (CURIE) for the associated trait">
+            <small id="curieHelp" class="form-text text-muted">Enter a curie that is an identifier for the associated trait. ie MONDO:0011122.</small>
+          </div>
+          <div class="form-group">
+            <label for="trait_label">Trait Label</label>
+            <input type="text" class="form-control" id="trait_label" name="trait_label" placeholder="Enter a label for the associated trait">
+          </div>
+          <div class="form-group">
+            <label for="as_file_path">File Path</label>
+            <input type="text" class="form-control" id="file_path" name="file_path" placeholder="Enter the file path">
+            <small id="filePathHelp" class="form-text text-muted">This is the file path relative to the rags_data directory.</small>
+            <small id="filePathHelp" class="form-text text-muted">For files directly inside of rags_data the file name is enough.</small>
+          </div>
+          <div class="form-group">
+            <label for="p_value_threshold">P Value Threshold</label>
+            <input type="number" step="any" class="form-control" id="p_value_threshold" name="p_value_threshold" placeholder="Enter the p value threshold">
+          </div>
+          <div class="form-group">
+            <label for="max_p_value">Maximum P Value</label>
+            <input type="number" step="any" class="form-control" id="max_p_value" name="max_p_value" placeholder="Enter the maximum p value">
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="has_tabix" name="has_tabix" checked>
+            <label class="form-check-label" for="has_tabix">Has tabix indexing</label>
+          </div>
+          <p></p>
+          <input type="hidden" value="{{ project.id }}" name="project_id" />
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary float-right">Save Study</button>
+      </form>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="addStudyFileModal" tabindex="-1" role="dialog" aria-labelledby="addStudyFileModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addStudyFileModalLabel">Add Association Studies</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+      <form id="add-study-file-form" enctype="multipart/form-data" method="post" action="/add_studies/" role="form">
+          <div class="form-group">
+            <label for="uploaded_studies_file">Select the file with association study information:</label>
+            <input name="uploaded_studies_file" type="file" required />
+          </div>
+          <p></p>
+          <input type="hidden" value="{{ project.id }}" name="project_id" />
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary float-right">Continue</button>
+      </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

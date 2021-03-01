@@ -1,5 +1,5 @@
-from rags_src.rags_core import SignificantHit, GWASHit, MWASHit, SequenceVariantContainer, MetaboliteContainer, SimpleAssociation
-from rags_src.util import LoggingUtil
+from rags_src.rags_core import SignificantHit, GWASHit, MWASHit, SequenceVariantContainer, MetaboliteContainer, RAGsAssociation
+from rags_src.util import LoggingUtil, Text
 
 from dataclasses import dataclass
 import logging
@@ -42,7 +42,7 @@ class MWASFileReader:
 
     def find_significant_hits(self, p_value_cutoff: float):
         # TODO - improve this - it should support TSV and other header variations
-        hit_container, num_found = MetaboliteContainer(), 0
+        hits_container, hit_counter = MetaboliteContainer(), 0
         try:
             with open(self.mwas_file.file_path) as f:
                 csv_reader = csv.reader(f)
@@ -54,16 +54,17 @@ class MWASFileReader:
                 for header in headers:
                     if header == 'curie':
                         curie_index = headers.index(header)
-                    if header == 'label':
+                    elif header == 'label':
                         name_index = headers.index(header)
                     elif ('pval' in header.lower()) or ('pvalue' in header.lower()):
                         pval_index = headers.index(header)
-                    elif 'beta' in header.lower():
-                        beta_index = headers.index(header)
+                    # elif 'beta' in header.lower():
+                    #    beta_index = headers.index(header)
 
                 if curie_index is None or name_index is None or pval_index is None:
-                    logger.warning(f'Error reading file headers for {self.mwas_file.file_path} - {headers}')
-                    return False, hit_container, None
+                    error_message = f'Error reading file headers for {self.mwas_file.file_path} - {headers}'
+                    logger.warning(error_message)
+                    return {"success": False, "error_message": error_message}
 
                 for data in csv_reader:
                     try:
@@ -71,19 +72,26 @@ class MWASFileReader:
                         p_value_string = data[pval_index]
                         p_value = float(p_value_string)
                         if p_value <= p_value_cutoff:
-                            new_hit = MWASHit(id=None, original_curie=data[curie_index], original_label=data[name_index])
-                            hit_container.add_hit(new_hit)
-                            num_found += 1
+                            new_hit = MWASHit(id=None,
+                                              original_id=data[curie_index],
+                                              original_name=data[name_index])
+                            hits_container.add_hit(new_hit)
+                            hit_counter += 1
                     except IndexError as e:
-                        logger.warning(f'Error parsing file {self.mwas_file.file_path}, on line {line_counter}: {e}')
+                        error_message = f'Error parsing file {self.mwas_file.file_path}, on line {line_counter}: {e}'
+                        logger.error(error_message)
+                        return {"success": False, "error_message": error_message}
                     except ValueError as e:
-                        logger.warning(f'Error converting {p_value_string} to float in {self.mwas_file.file_path}')
-                logger.info(f'Found {num_found} significant metabolites in {self.mwas_file.file_path}!')
-        except IOError:
-            logger.warning(f'Could not open file: {self.mwas_file.file_path}')
-            return False, hit_container, None
+                        error_message = f'Error converting {p_value_string} to float in {self.mwas_file.file_path}: {e}'
+                        logger.error(error_message)
+                        return {"success": False, "error_message": error_message}
+                logger.debug(f'Found {hit_counter} significant metabolites in {self.mwas_file.file_path}!')
+        except IOError as e:
+            error_message = f'Error opening file: {self.mwas_file.file_path} ({e})'
+            logger.error(error_message)
+            return {"success": False, "error_message": error_message}
 
-        return True, hit_container, num_found
+        return {"success": True, "hits_container": hits_container, "hit_counter": hit_counter}
 
     def get_mwas_association_from_file(self, mwas_hit: MWASHit):
         association_line = None
@@ -106,21 +114,21 @@ class MWASFileReader:
                         beta_index = headers.index(header)
 
                 if curie_index is None or name_index is None or pval_index is None:
-                    logger.warning(f'Error reading file headers for {self.mwas_file.file_path} - {headers}')
+                    logger.error(f'Error reading file headers for {self.mwas_file.file_path} - {headers}')
                     return False
 
                 for data in csv_reader:
                     try:
                         line_counter += 1
-                        if data[curie_index] == mwas_hit.original_curie:
+                        if data[curie_index] == mwas_hit.original_id:
                             association_line = data
                             break
                     except IndexError as e:
                         logger.warning(f'Error parsing file {self.mwas_file.file_path}, on line {line_counter}: {e}')
                     except ValueError as e:
-                        logger.warning(f'Error converting {p_value_string} to float in {self.mwas_file.file_path}')
-        except IOError:
-            logger.warning(f'Could not open file: {self.mwas_file.file_path}')
+                        logger.warning(f'Error converting {p_value_string} to float in {self.mwas_file.file_path}: {e}')
+        except IOError as e:
+            logger.error(f'Could not open file: {self.mwas_file.file_path} ({e})')
 
         if association_line:
             try:
@@ -130,7 +138,7 @@ class MWASFileReader:
                     # we set it to the minimum value instead
                     p_value = sys.float_info.min
                 beta = float(association_line[beta_index])
-                return SimpleAssociation(p_value, beta)
+                return RAGsAssociation(p_value, beta)
             except ValueError as e:
                 logger.warning(f'Error: Bad p value or beta in file {self.gwas_file.file_path}: {e}')
         else:
@@ -295,18 +303,19 @@ class GWASFileReader:
         try:
             self.initialize_reader()
         except OSError as e:
-            logger.error(f'Error reading file {self.gwas_file.file_path}: {e}')
-            return False, None, None
+            error_message = f'Error reading file {Text.path_last(self.gwas_file.file_path)}: {e}'
+            logger.warning(error_message)
+            return {"success": False, "error_message": error_message}
 
-        variant_container = SequenceVariantContainer()
-        sig_variants_found = 0
+        hits_container = SequenceVariantContainer()
+        hit_counter = 0
+        variants_that_failed = []
         sig_variants_failed_conversion = 0
         line_counter = 0
         for line in self.file_handler:
             try:
                 line_counter += 1
                 data = line.split()
-                #print(f'checking line {data}')
                 p_value_string = data[self.p_val_index]
                 p_value = float(p_value_string)
                 if p_value <= p_value_cutoff:
@@ -324,25 +333,33 @@ class GWASFileReader:
                                                     alt_allele)
                     if hgvs:
                         new_variant = GWASHit(id=None,
+                                              original_id=f'HGVS:{hgvs}',
+                                              original_name=hgvs,
                                               hgvs=hgvs,
                                               chrom=chromosome,
                                               pos=position,
                                               ref=ref_allele,
                                               alt=alt_allele)
-                        variant_container.add_hit(new_variant)
-                        sig_variants_found += 1
+                        hits_container.add_hit(new_variant)
+                        hit_counter += 1
                     else:
                         sig_variants_failed_conversion += 1
+                        variants_that_failed.append(f'{chromosome}|{position}|{ref_allele}|{alt_allele}')
 
             except (IndexError, ValueError) as e:
-                logger.error(f'Error reading file {self.gwas_file.file_path}, on line {line_counter}: {e}')
+                error_message = f'Error reading file {self.gwas_file.file_path}, on line {line_counter}: {e}'
+                logger.error(error_message)
+                return {"success": False, "error_message": error_message}
 
         gwas_filename = self.gwas_file.file_path.rsplit('/', 1)[-1]
-        logger.info(f'Finding variants in {gwas_filename} complete. {line_counter} lines searched.')
-        logger.info(f'In {gwas_filename} {sig_variants_found} significant variants found and converted.')
+        logger.debug(f'Finding variants in {gwas_filename} complete. {line_counter} lines searched.')
+        logger.debug(f'In {gwas_filename} {hit_counter} significant variants found and converted.')
         if sig_variants_failed_conversion > 0:
-            logger.error(f'In {gwas_filename} {sig_variants_failed_conversion} other significant variants failed to convert to hgvs.')
-        return True, variant_container, sig_variants_found
+            logger.error(f'In {gwas_filename} {sig_variants_failed_conversion} significant variants failed to convert to hgvs.')
+            logger.error(f'Here are the variants that failed to convert to hgvs: ' + ", ".join(variants_that_failed))
+        return {"success": True,
+                "hits_container": hits_container,
+                "hit_counter": hit_counter}
 
     def convert_vcf_to_hgvs(self, reference_genome, reference_patch, chromosome, position, ref_allele, alt_allele):
         try:
@@ -409,7 +426,7 @@ class GWASFileReader:
                     # we set it to the minimum value instead
                     p_value = sys.float_info.min
                 beta = float(association_line[self.beta_index])
-                return SimpleAssociation(p_value, beta)
+                return RAGsAssociation(p_value, beta)
             except ValueError as e:
                 logger.warning(f'Error: Bad p value or beta in file {self.gwas_file.file_path}: {e}')
         else:

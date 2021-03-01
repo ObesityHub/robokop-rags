@@ -3,8 +3,10 @@
 {% block title %}Error{% endblock %}
 {% block main %}
 <div class="error_body">
-   {% if error_message %}
-   <div class="alert alert-danger" role="alert">{{ error_message }}</div>
+   {% if error_messages %}
+        {% for message in error_messages %}
+            <div class="alert alert-danger" role="alert">{{ message }}</div>
+        {% endfor %}
    {% else %}
    <div class="alert alert-danger" role="alert">There was an error.</div>
    {% endif %}
