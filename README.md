@@ -21,7 +21,7 @@ $ git clone https://github.com/ObesityHub/robokop-rags.git
 
 ### Environment settings
 
-Set up these required environment variables.
+Set the required environment variables.
 
 Create the settings file: `<workspace>/rags.env`
 
@@ -53,13 +53,10 @@ NEO4J_CACHE_MEMORY=4G
 NEO4J_READONLY=False
 NEO4J_PASSWORD=yourpassword
 
-# Cache - Redis
-RAGS_CACHE_HOST=rags_cache
-RAGS_CACHE_PORT=6380
-RAGS_CACHE_DB=0
-RAGS_CACHE_PASSWORD=yourpassword
-
-# Genetics Cache - Redis
+# Genetics Cache - Redis 
+# Optional cache to store genetics normalization and other information.
+# Using a cache will improve speed and performance if genetic variants are loaded multiple times.
+# https://github.com/ObesityHub/robokop-genetics
 ROBO_GENETICS_CACHE_HOST=rags_cache
 ROBO_GENETICS_CACHE_PORT=6380
 ROBO_GENETICS_CACHE_DB=1
@@ -67,7 +64,7 @@ ROBO_GENETICS_CACHE_PASSWORD=yourpassword
 
 # Service Endpoints
 NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/get_normalized_nodes
-
+EDGE_NORMALIZATION_ENDPOINT=https://edgenormalization-sri.renci.org/resolve_predicate
 ```
 
 ### Set up a Knowledge Graph
