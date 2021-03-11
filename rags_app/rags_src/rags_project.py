@@ -5,7 +5,7 @@ from rags_src.rags_normalizer import RagsNormalizer
 from rags_src.rags_graph_db import RagsGraphDB
 from rags_src.rags_project_db import RagsProjectDB
 from rags_src.util import LoggingUtil
-from rags_src.rags_core import RAGsNode, GWAS, MWAS, ROOT_ENTITY, RAGS_ERROR_SEARCHING, RAGS_ERROR_BUILDING
+from rags_src.rags_core import RAGsNode, GWAS, MWAS, ROOT_ENTITY, RAGS_ERROR_SEARCHING, RAGS_ERROR_BUILDING, SEQUENCE_VARIANT
 from dataclasses import dataclass
 import logging
 import os
@@ -84,6 +84,7 @@ class RagsProjectManager:
         if norm_failures:
             warning = f"Normalization could not find a result for these traits: {', '.join(norm_failures)}"
             results.set_warning_message(warning)
+            logger.warning(warning)
 
         self.rags_builder.write_nodes(nodes_to_write)
         self.project_db.commit_orm_transactions()
@@ -93,7 +94,7 @@ class RagsProjectManager:
         return results
 
     def search_studies(self):
-        logger.debug('Searching RAGs files for significant hits...')
+        logger.info('Searching RAGs files for significant hits...')
         results = RagsProjectResults()
         all_studies = self.project_db.get_all_studies(self.project_id)
         studies_to_search = [study for study in all_studies if not study.searched]
@@ -134,16 +135,17 @@ class RagsProjectManager:
         return results
 
     def build_rags(self, force_rebuild: bool = False):
-        logger.debug('About to build RAGs!')
 
         results = RagsProjectResults()
 
+        logger.info('Normalizing and writing hits to the graph...')
         self.build_hits(force_rebuild)
 
         # next go into the files and find/write the associations
+        logger.info('Writing associations to the graph...')
         self.build_associations(force_rebuild)
 
-        logger.debug(f'Building RAGs complete for project: {self.project_id}')
+        logger.info(f'Building RAGs complete for project: {self.project_id}')
 
         results.success = True
         results.success_message = "The graph was built successfully."
@@ -189,9 +191,10 @@ class RagsProjectManager:
         all_mwas_hits = None
         unwritten_gwas_hits = self.project_db.get_unwritten_gwas_hits(self.project_id)
         unwritten_mwas_hits = self.project_db.get_unwritten_mwas_hits(self.project_id)
+        logger.debug(f'Building associations for {len(unwritten_gwas_hits)} gwas hits and {len(unwritten_mwas_hits)} mwas hits.')
         for i, study in enumerate(all_studies, 1):
-            logger.debug(f'Starting rag associations {i} of {len(all_studies)}: {study.study_name}')
             if study.searched:
+                logger.info(f'Building associations for study {i} of {len(all_studies)}: {study.study_name}')
                 if study.study_type == MWAS:
                     if study.written and not force_rebuild:
                         # it's been written previously, only add the new associations
@@ -212,6 +215,8 @@ class RagsProjectManager:
                             all_gwas_hits = self.project_db.get_all_gwas_hits(self.project_id)
                         self.rags_builder.process_gwas_associations(study, all_gwas_hits)
                 study.written = True
+            else:
+                logger.info(f'Skipping associations for study: {study.study_name} (due to an error in the search phase)')
 
         if unwritten_gwas_hits:
             for gwas_hit in unwritten_gwas_hits:
@@ -222,6 +227,28 @@ class RagsProjectManager:
                 mwas_hit.written = True
 
         self.project_db.commit_orm_transactions()
+
+    def annotate_hits(self):
+
+        results = RagsProjectResults()
+
+        normalized_association_predicate = self.rags_builder.normalized_association_predicate
+        # TODO the variant node type and nearby variant edge type should be normalized dynamically maybe
+        query = f'MATCH (v:`{SEQUENCE_VARIANT}`)<-[:`{normalized_association_predicate}`]-() with distinct v WHERE NOT (v)-[:`biolink:is_nearby_variant_of`]-() return v.id as id, v.equivalent_identifiers as equivalent_identifiers'
+        variants_for_annotation = self.rags_graph_db.custom_read_query(query)
+
+        if variants_for_annotation:
+            logger.info(f'Found {len(variants_for_annotation)} variants that need genes.')
+            self.rags_builder.add_genes_to_variants(variants_for_annotation)
+            results.success_message = f"Annotated {len(variants_for_annotation)} variants."
+        else:
+            logger.info(f'Found no variants that need genes in the graph.')
+            results.success_message = f"Found no variants that need genes in the graph."
+
+        # TODO catch normalization or graph exceptions and return better errors
+        results.success = True
+        return results
+
 
     def validate_project(self):
         logger.info(f'Running validation for all builds in {self.project_id}')

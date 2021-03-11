@@ -49,6 +49,13 @@
             <input type="hidden" value="{{ project.id }}" name="project_id" />
             <input type="hidden" value="1" name="force_rebuild" />
         </form>
+        <hr />
+        <form id="annotate_graph_form" method="post" action="/annotate/">
+             5) Annotate the graph (find genes related to variants):
+            <button type="submit" class="btn btn-secondary">Annotate Variants</button>
+            <input type="hidden" value="{{ project.id }}" name="project_id" />
+        </form>
+        <hr />
         <div class="table-responsive">
           <table class="table table-striped table-sm">
               <thead>

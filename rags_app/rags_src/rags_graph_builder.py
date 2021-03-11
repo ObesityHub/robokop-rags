@@ -76,9 +76,9 @@ class RAGsGraphBuilder(object):
 
     def process_gwas_variants(self, gwas_hits: List[GWASHit]):
 
-        variant_ids = [hit.original_id for hit in gwas_hits]
-        logger.debug(f'Found {len(variant_ids)} sequence variant nodes to normalize. Normalizing...')
-        variant_node_failures = []
+        variant_ids = list(set([hit.original_id for hit in gwas_hits]))
+        logger.info(f'Found {len(variant_ids)} sequence variant nodes to normalize. Normalizing...')
+        variant_norm_failures = []
         variant_node_types = frozenset(self.genetics_normalizer.get_sequence_variant_node_types())
         sequence_variant_normalizations = self.genetics_normalizer.normalize_variants(variant_ids)
         normalized_variant_nodes = []
@@ -95,7 +95,7 @@ class RAGsGraphBuilder(object):
                 gwas_hit.normalized_name = normalized_name
                 equivalent_identifiers = normalized_info[0]["equivalent_identifiers"]
             else:
-                variant_node_failures.append(original_id)
+                variant_norm_failures.append(original_id)
                 normalized_id = original_id
                 normalized_name = gwas_hit.original_name
                 equivalent_identifiers = set()
@@ -108,42 +108,9 @@ class RAGsGraphBuilder(object):
             normalized_variant_nodes.append(variant_node)
 
         self.write_nodes(normalized_variant_nodes)
-        if variant_node_failures:
-            logger.warning(f'Processing GWAS variants, these failed normalization: {", ".join(variant_node_failures)}')
-        logger.debug(f'Writing variant nodes complete.')
-        """
-        logger.debug(f'Finding and writing variant to gene relationships.')
-        v_to_gene_results = self.genetics_services.get_variant_to_gene(ALL_VARIANT_TO_GENE_SERVICES, normalized_variant_nodes)
-        gene_node_ids = [node.id for (edge, node) in chain.from_iterable(v_to_gene_results.values())]
-        gene_normalizations = self.rags_normalizer.get_normalized_nodes(gene_node_ids)
-
-        self.write_nodes(gene_normalizations.values())
-
-        for variant_node_id, results in v_to_gene_results.items():
-            # convert the simple edges and nodes to rags objects and write them to the graph
-            for (edge, gene_node) in results:
-                original_gene_id = gene_node.id
-                if gene_normalizations[gene_node.id]:
-                    normalized_gene_id = gene_normalizations[gene_node.id].id
-                else:
-                    normalized_gene_id = original_gene_id
-
-                gene_edge = RAGsEdge(id=None,
-                                     subject_id=variant_node_id,
-                                     object_id=normalized_gene_id,
-                                     original_object_id=original_gene_id,
-                                     predicate=edge.predicate,
-                                     relation=edge.relation,
-                                     ctime=edge.ctime,
-                                     provided_by=edge.provided_by,
-                                     properties=edge.properties)
-                self.writer.write_edge(gene_edge)
-                
-            logger.debug(f'added {len(results)} variant relationships for {variant_node_id}')
-        self.writer.flush()
-        
-        logger.debug(f'Writing variant to gene relationships complete.')
-        """
+        if variant_norm_failures:
+            logger.warning(f'Processing GWAS variants, these failed normalization: {", ".join(variant_norm_failures)}')
+        logger.info(f'Writing variant nodes complete.')
 
         return len(gwas_hits)
 
@@ -171,15 +138,17 @@ class RAGsGraphBuilder(object):
                 already_added.add(hit.original_id)
 
         with GWASFileReader(gwas_file, use_tabix=gwas_file.has_tabix) as gwas_file_reader:
-
+            creation_time = int(time.time())
+            logger.info(f'Reading {len(unique_gwas_hits)} GWAS associations from file!')
             gwas_associations = map(gwas_file_reader.get_gwas_association_from_file, unique_gwas_hits)
+            logger.info(f'Building GWAS associations and writing to graph!')
             for gwas_hit, association in zip(unique_gwas_hits, gwas_associations):
                 if association:
                     if (gwas_study.max_p_value is None) or (association.p_value <= gwas_study.max_p_value):
                         normalized_variant_id = gwas_hit.normalized_id if gwas_hit.normalized_id else gwas_hit.original_id
                         properties = {'p_value': association.p_value,
                                       'strength': association.beta,
-                                      'ctime': int(time.time())}
+                                      'ctime': creation_time}
 
                         new_edge = RAGsEdge(id=None,
                                             subject_id=normalized_trait_id,
@@ -217,16 +186,66 @@ class RAGsGraphBuilder(object):
 
         return True
 
+    def add_genes_to_variants(self, variants: list):
+
+        logger.info(f'Finding gene relationships.')
+
+        variant_nodes = [RAGsNode(v["id"], SEQUENCE_VARIANT, None, synonyms=v["equivalent_identifiers"]) for v in variants]
+
+        v_to_gene_results = self.genetics_services.get_variant_to_gene(ALL_VARIANT_TO_GENE_SERVICES, variant_nodes)
+
+        logger.info(f'Normalizing genes.')
+        gene_node_ids = [node.id for (edge, node) in chain.from_iterable(v_to_gene_results.values())]
+        gene_normalizations = self.rags_normalizer.get_normalized_nodes(gene_node_ids)
+
+        predicates = list(set([edge.predicate_id for (edge, node) in chain.from_iterable(v_to_gene_results.values())]))
+        predicate_normalizations = self.rags_normalizer.get_normalized_edges(predicates)
+
+        logger.info(f'Writing genes.')
+        self.write_nodes(gene_normalizations.values())
+        self.writer.flush()
+
+        logger.info(f'Writing variant to gene relationships.')
+        failed_predicates = set()
+        for variant_node_id, results in v_to_gene_results.items():
+            for (edge, gene_node) in results:
+                normalized_predicate = predicate_normalizations[edge.predicate_id]
+                if normalized_predicate:
+                    original_gene_id = gene_node.id
+                    if gene_normalizations[gene_node.id]:
+                        normalized_gene_id = gene_normalizations[gene_node.id].id
+                    else:
+                        normalized_gene_id = original_gene_id
+                    gene_edge = RAGsEdge(id=None,
+                                         subject_id=variant_node_id,
+                                         object_id=normalized_gene_id,
+                                         original_object_id=original_gene_id,
+                                         predicate=normalized_predicate,
+                                         relation=edge.predicate_id,
+                                         provided_by=edge.provided_by,
+                                         properties=edge.properties)
+                    self.writer.write_edge(gene_edge)
+                else:
+                    failed_predicates.add(edge.predicate_id)
+            logger.debug(f'added {len(results)} variant relationships for {variant_node_id}')
+
+        if failed_predicates:
+            logger.error(f'Variant to gene annotations had these predicates that failed normalization: {failed_predicates}')
+
+        self.writer.flush()
+        logger.info(f'Writing variant to gene relationships complete.')
+
     def process_mwas_metabolites(self, mwas_hits: List[MWASHit]):
 
         results = RagsGraphBuilderResults()
 
-        metabolite_ids = [hit.original_id for hit in mwas_hits]
+        metabolite_ids = list(set([hit.original_id for hit in mwas_hits]))
 
         # dictionary of node ID -> RagsNode
         normalized_nodes = self.rags_normalizer.get_normalized_nodes(metabolite_ids)
 
         nodes_to_write = []
+        metabolite_norm_failures = []
         for mwas_hit in mwas_hits:
             normalized_node = normalized_nodes[mwas_hit.original_id]
             if normalized_node is not None:
@@ -235,6 +254,7 @@ class RAGsGraphBuilder(object):
             else:
                 warning = f"Normalization could not find a result for {mwas_hit.original_id}"
                 #logger.warning(warning)
+                metabolite_norm_failures.append(mwas_hit.original_id)
                 results.warning_messages.append(warning)
                 normalized_node = RAGsNode(mwas_hit.original_id,
                                            type=CHEMICAL_SUBSTANCE,
@@ -245,8 +265,11 @@ class RAGsGraphBuilder(object):
 
         self.write_nodes(nodes_to_write)
 
+        if metabolite_norm_failures:
+            logger.warning(f'Processing MWAS metabolites, these failed normalization: {", ".join(metabolite_norm_failures)}')
+
         results.success = True
-        results.success_message = f"Processed {len(mwas_hits)} metabolites."
+        results.success_message = f"Processed {len(metabolite_ids)} metabolites."
         return results
 
     def process_mwas_associations(self,
@@ -268,6 +291,7 @@ class RAGsGraphBuilder(object):
                 unique_mwas_hits.append(hit)
 
         with MWASFileReader(mwas_file) as mwas_file_reader:
+            creation_time = int(time.time())
             for mwas_hit in unique_mwas_hits:
                 association = mwas_file_reader.get_mwas_association_from_file(mwas_hit)
                 if association:
@@ -276,7 +300,7 @@ class RAGsGraphBuilder(object):
 
                         properties = {'p_value': association.p_value,
                                       'strength': association.beta,
-                                      'ctime': int(time.time())}
+                                      'ctime': creation_time}
 
                         new_edge = RAGsEdge(id=None,
                                             subject_id=normalized_trait_id,

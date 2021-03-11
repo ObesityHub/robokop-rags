@@ -265,6 +265,27 @@ def build_rags(request: Request,
     return get_manage_project_view_template(rags_project_db, project_id, template_context)
 
 
+@app.post("/annotate/")
+def annotate_rags(request: Request,
+                  project_id: int = Form(...),
+                  rags_project_db: RagsProjectDB = Depends(get_db)):
+    template_context = init_template_context(request)
+    db_project = rags_project_db.get_project_by_id(project_id)
+    project_manager = RagsProjectManager(db_project.id, db_project.name, rags_project_db)
+
+    try:
+        results = project_manager.annotate_hits()
+        update_template_context_with_results(results, template_context)
+    except RagsGraphDBConnectionError:
+        show_graph_db_connection_error(template_context)
+        return templates.TemplateResponse("error.html.jinja", template_context)
+    except RagsNormalizationError as e:
+        show_error_message(template_context, e.message)
+        return templates.TemplateResponse("error.html.jinja", template_context)
+
+    return get_manage_project_view_template(rags_project_db, project_id, template_context)
+
+
 def get_missing_project_view_template(template_context: dict):
     template_context["error_message"] = f"Oh No. Project not found."
     return templates.TemplateResponse("error.html.jinja", template_context)
