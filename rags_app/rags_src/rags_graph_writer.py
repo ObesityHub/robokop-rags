@@ -80,9 +80,8 @@ def write_batch_of_edges(tx, batch_of_edges: list, predicate):
 
     cypher = f"""UNWIND $edge_batch as edge
             MATCH (a:`{ROOT_ENTITY}` {{id: edge.subject_id}}),(b:`{ROOT_ENTITY}` {{id: edge.object_id}})
-            MERGE (a)-[r:`{predicate}` {{project_id: edge.project_id, namespace: edge.namespace, input_id: edge.input_id}}]->(b)
+            CREATE (a)-[r:`{predicate}` {{project_id: edge.project_id, namespace: edge.namespace, input_id: edge.input_id}}]->(b)
             SET r.project_name = edge.project_name
-            SET r.id=apoc.util.md5([a.id, b.id, '{predicate}'])
             SET r.edge_source=edge.edge_source
             SET r.source_database=edge.source_database
             SET r.relation=edge.relation
