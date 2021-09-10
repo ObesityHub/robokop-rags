@@ -1,6 +1,6 @@
 # Robokop Association Graphs
 
-Robokop Association Graphs or RAGs is a tool for uploading results from association studies into a graph database for comparison and analysis. 
+Robokop Association Graphs or RAGs is a tool for uploading results from association studies into a Knowledge Graph database for comparison and analysis. 
 
 ## Installation
 
@@ -57,14 +57,14 @@ NEO4J_PASSWORD=yourpassword
 # Optional cache to store genetics normalization and other information.
 # Using a cache will improve speed and performance if genetic variants are loaded multiple times.
 # https://github.com/ObesityHub/robokop-genetics
-ROBO_GENETICS_CACHE_HOST=rags_cache
-ROBO_GENETICS_CACHE_PORT=6380
-ROBO_GENETICS_CACHE_DB=1
-ROBO_GENETICS_CACHE_PASSWORD=yourpassword
+# ROBO_GENETICS_CACHE_HOST=rags_cache
+# ROBO_GENETICS_CACHE_PORT=6380
+# ROBO_GENETICS_CACHE_DB=1
+# ROBO_GENETICS_CACHE_PASSWORD=yourpassword
 
-# Service Endpoints
-NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/get_normalized_nodes
-EDGE_NORMALIZATION_ENDPOINT=https://edgenormalization-sri.renci.org/resolve_predicate
+# Optional - Alternate Service Endpoints
+# NODE_NORMALIZATION_ENDPOINT=https://nodenormalization.renci.org/alternate_endpoint
+# EDGE_NORMALIZATION_ENDPOINT=https://edgenormalization.renci.org/alternate_endpoint
 ```
 
 ### Set up a Knowledge Graph
@@ -80,7 +80,7 @@ RAGS_BASE_GRAPH_URL=http://robokopkg.renci.org/latest-graph.db
 
 ##### Option B
 
-Alternatively, if you already have a knowledge graph from a Neo4j 3.5 admin dump, move your dump file and rename it so that it matches the path below. Create the neo4j_data directory if it doesn't exist.
+Alternatively, if you already have a knowledge graph from a Neo4j 4.2 admin dump, move your dump file and rename it so that it matches the path below. Create the neo4j_data directory if it doesn't exist.
 ```
 <workspace>/neo4j_data/graph.db.latest.dump
 ```

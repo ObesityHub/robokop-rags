@@ -1,4 +1,4 @@
-version: "3.7"
+version: "3.8"
 services:
   rags_app:
     build:
@@ -16,6 +16,8 @@ services:
       - "${RAGS_APP_DATA_DIR}:/rags/data"
     ports:
       - "${RAGS_APP_PORT}:${RAGS_APP_PORT}"
+    networks:
+      - rags_network
 
   rags_graph:
     build:
@@ -26,20 +28,21 @@ services:
       - -c
       - "chown neo4j:neo4j /ssl && /docker-entrypoint.sh neo4j"
     environment:
-      - JAVA_HOME=/usr/lib/jvm/java-11-openjdk/jre
-      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
-      - NEO4J_dbms_connectors_default__listen__address=0.0.0.0
-      - NEO4J_dbms_security_procedures_unrestricted=apoc.*  # un-sandbox apoc procedures: http://blog.armbruster-it.de/2017/05/running-neo4j-3-2-apoc-docker/
       - NEO4J_dbms_memory_heap_max__size=${NEO4J_HEAP_MEMORY}
       - NEO4J_dbms_memory_heap_initial__size=${NEO4J_HEAP_MEMORY}
       - NEO4J_dbms_memory_pagecache_size=${NEO4J_CACHE_MEMORY}
-      - NEO4J_dbms_read__only=${NEO4J_READONLY}
-      - NEO4J_dbms_jvm_additional=-XX:+UnlockExperimentalVMOptions -XX:+UseZGC
-    ports:
-      - "${NEO4J_HTTP_PORT}:${NEO4J_HTTP_PORT}"
-      - "${NEO4J_BOLT_PORT}:${NEO4J_BOLT_PORT}"
-      - "${NEO4J_HTTPS_PORT}:${NEO4J_HTTPS_PORT}"
+      - NEO4J_dbms_security_auth__enabled=False
     volumes:
       - ../neo4j_data:/data
       - ../neo4j_logs:/logs
       - ../neo4j_ssl:/ssl
+    ports:
+      - "${NEO4J_HTTP_PORT}:${NEO4J_HTTP_PORT}"
+      - "${NEO4J_BOLT_PORT}:${NEO4J_BOLT_PORT}"
+      - "${NEO4J_HTTPS_PORT}:${NEO4J_HTTPS_PORT}"
+    networks:
+      - rags_network
+
+networks:
+  rags_network:
+    name: rags_network
