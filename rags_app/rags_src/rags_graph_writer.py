@@ -1,5 +1,5 @@
-from rags_src.rags_core import ROOT_ENTITY, RAGsEdge, RAGsNode
-from rags_src.util import LoggingUtil, Text
+from rags_src.rags_core import ROOT_ENTITY, RAGsEdge, RAGsNode, ORIGINAL_KNOWLEDGE_SOURCE
+from rags_src.util import LoggingUtil
 from rags_src.rags_graph_db import RagsGraphDB
 
 from collections import defaultdict
@@ -52,7 +52,6 @@ class BufferedWriter(object):
         else:
             self.written_edges[edge.subject_id][edge.object_id].add(edge)
 
-        #predicate = Text.snakify(edge.predicate)
         edge_queue = self.edge_queues[edge.predicate]
         edge_queue.append(edge)
         if len(edge_queue) >= self.edge_buffer_size:
@@ -79,24 +78,25 @@ class BufferedWriter(object):
 def write_batch_of_edges(tx, batch_of_edges: list, predicate):
 
     cypher = f"""UNWIND $edge_batch as edge
-            MATCH (a:`{ROOT_ENTITY}` {{id: edge.subject_id}}),(b:`{ROOT_ENTITY}` {{id: edge.object_id}})
-            CREATE (a)-[r:`{predicate}` {{project_id: edge.project_id, namespace: edge.namespace, input_id: edge.input_id}}]->(b)
-            SET r.project_name = edge.project_name
-            SET r.edge_source=edge.edge_source
-            SET r.source_database=edge.source_database
-            SET r.relation=edge.relation
+            MATCH (a:`{ROOT_ENTITY}` {{id: edge.subject_id}}),(b:`{ROOT_ENTITY}` {{id: edge.object_id}})            
+            CREATE (a)-[r:`{predicate}` {{
+            project_id: edge.project_id,
+            project_name: edge.project_name,
+            namespace: edge.namespace,
+            input_id: edge.input_id,
+            relation: edge.relation,
+            `{ORIGINAL_KNOWLEDGE_SOURCE}`: edge.provided_by}}]->(b)
             SET r += edge.properties"""
 
     edges_as_dicts = [{'subject_id': edge.subject_id,
                        'object_id': edge.object_id,
                        'input_id': edge.original_object_id,
                        'relation': edge.relation,
-                       'edge_source': [edge.provided_by],
-                       'source_database': [edge.provided_by.split('.')[0]] if '.' in edge.provided_by else None,
+                       'provided_by': edge.provided_by if edge.provided_by else None,
                        'namespace': edge.namespace if edge.namespace else None,
                        'project_id': edge.project_id if edge.project_id else None,
                        'project_name': edge.project_name if edge.project_name else None,
-                       'properties': edge.properties} for edge in batch_of_edges]
+                       'properties': edge.properties if edge.properties else {}} for edge in batch_of_edges]
 
     tx.run(cypher, {'edge_batch': edges_as_dicts})
 

@@ -1,7 +1,7 @@
 import pytest
 
 from rags_src.rags_normalizer import RagsNormalizer
-from rags_src.rags_core import DISEASE, CHEMICAL_SUBSTANCE, ROOT_ENTITY
+from rags_src.rags_core import DISEASE, CHEMICAL_SUBSTANCE, ROOT_ENTITY, DEFAULT_EDGE_PREDICATE
 
 @pytest.fixture()
 def normalizer():
@@ -24,7 +24,7 @@ def test_node_normalization(normalizer):
     assert DISEASE in test_node.all_types
 
     test_node_2 = normalized_nodes['CHEBI:27732']
-    assert test_node_2.name == 'CAFFEINE'
+    assert test_node_2.name == 'Caffeine'
     assert test_node_2.id == 'PUBCHEM.COMPOUND:2519'
     assert CHEMICAL_SUBSTANCE in test_node_2.all_types
 
@@ -35,13 +35,15 @@ def test_edge_normalization(normalizer):
 
     predicates = ['RO:0002610',
                   'RO:0000052',
-                  'SEMMEDDB:CAUSES']
+                  'SEMMEDDB:CAUSES',
+                  'BADPREFIX:testing']
 
     normalized_predicates = normalizer.get_normalized_edges(predicates)
 
     assert normalized_predicates['RO:0002610'] == 'biolink:correlated_with'
     assert normalized_predicates['RO:0000052'] == 'biolink:related_to'
     assert normalized_predicates['SEMMEDDB:CAUSES'] == 'biolink:causes'
+    assert normalized_predicates['BADPREFIX:testing'] == DEFAULT_EDGE_PREDICATE
 
 
 

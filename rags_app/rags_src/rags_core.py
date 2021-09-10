@@ -4,13 +4,16 @@ from rags_src.util import Text
 
 # constants that correspond to node types in the biolink model
 TESTING_NODE = 'rags:Testing'
-CHEMICAL_SUBSTANCE = 'biolink:ChemicalSubstance'
+CHEMICAL_SUBSTANCE = 'biolink:ChemicalEntity'
 DISEASE = 'biolink:Disease'
 GENE = 'biolink:Gene'
 PHENOTYPIC_FEATURE = 'biolink:PhenotypicFeature'
 DISEASE_OR_PHENOTYPIC_FEATURE = 'biolink:DiseaseOrPhenotypicFeature'
 ROOT_ENTITY = 'biolink:NamedThing'
 SEQUENCE_VARIANT = 'biolink:SequenceVariant'
+
+DEFAULT_EDGE_PREDICATE = 'biolink:related_to'
+ORIGINAL_KNOWLEDGE_SOURCE = 'biolink:original_knowledge_source'
 
 # valid trait types for RAGs studies
 RAGS_TRAIT_TYPES = [
@@ -65,7 +68,7 @@ class RAGsEdge:
     original_object_id: str
     predicate: str
     relation: str
-    provided_by: str
+    provided_by: str = None
     namespace: str = None
     project_id: str = None
     project_name: str = None

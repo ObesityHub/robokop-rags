@@ -3,18 +3,15 @@ import os
 import time
 from itertools import chain
 from typing import List
-from dataclasses import dataclass, field
 
 from rags_src.rags_core import *
-from rags_src.rags_file_tools import GWASFileReader, MWASFileReader
+from rags_src.rags_file_tools import GWASFileReader, MWASFileReader, GWASFile, MWASFile
 from rags_src.rags_graph_writer import BufferedWriter
 from rags_src.rags_graph_db import RagsGraphDB
 from rags_src.rags_project_db_models import RAGsStudy
-from rags_src.rags_file_tools import GWASFile, MWASFile
-from rags_src.util import LoggingUtil
 from rags_src.rags_normalizer import RagsNormalizer
-
-import rags_src.rags_core as rags_core
+from rags_src.rags_variant_annotation import SequenceVariantAnnotator
+from rags_src.util import LoggingUtil
 
 from robokop_genetics.genetics_services import GeneticsServices, ALL_VARIANT_TO_GENE_SERVICES
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
@@ -59,11 +56,11 @@ class RAGsGraphBuilder(object):
                               study: RAGsStudy):
 
         real_file_path = self.get_real_file_path(study)
-        if study.study_type == rags_core.GWAS:
+        if study.study_type == GWAS:
             gwas_file = GWASFile(file_path=real_file_path)
             with GWASFileReader(gwas_file) as gwas_file_reader:
                 results = gwas_file_reader.find_significant_hits(study.p_value_cutoff)
-        elif study.study_type == rags_core.MWAS:
+        elif study.study_type == MWAS:
             mwas_file = MWASFile(file_path=real_file_path)
             with MWASFileReader(mwas_file) as mwas_file_reader:
                 results = mwas_file_reader.find_significant_hits(study.p_value_cutoff)
@@ -85,24 +82,24 @@ class RAGsGraphBuilder(object):
         for gwas_hit in gwas_hits:
             gwas_hit.normalized = True
             original_id = gwas_hit.original_id
-            normalized_info = sequence_variant_normalizations[original_id]
-            if normalized_info:
+            normalized_node = sequence_variant_normalizations[original_id][0]
+            if 'id' in normalized_node:
                 # sequence variant normalization returns a list of results but assume there is only one item or nothing
                 # this is because we always start with unambiguous IDs for RAGs GWAS variants
-                normalized_id = normalized_info[0]["id"]
-                gwas_hit.normalized_id = normalized_id
-                normalized_name = normalized_info[0]["name"]
-                gwas_hit.normalized_name = normalized_name
-                equivalent_identifiers = normalized_info[0]["equivalent_identifiers"]
+                variant_node_id = normalized_node["id"]
+                gwas_hit.normalized_id = variant_node_id
+                variant_node_name = normalized_node["name"]
+                gwas_hit.normalized_name = variant_node_name
+                equivalent_identifiers = normalized_node["equivalent_identifiers"]
             else:
                 variant_norm_failures.append(original_id)
-                normalized_id = original_id
-                normalized_name = gwas_hit.original_name
+                variant_node_id = original_id
+                variant_node_name = gwas_hit.original_name
                 equivalent_identifiers = set()
 
-            variant_node = RAGsNode(normalized_id,
+            variant_node = RAGsNode(variant_node_id,
                                     type=SEQUENCE_VARIANT,
-                                    name=normalized_name,
+                                    name=variant_node_name,
                                     all_types=variant_node_types,
                                     synonyms=equivalent_identifiers)
             normalized_variant_nodes.append(variant_node)
@@ -156,7 +153,6 @@ class RAGsGraphBuilder(object):
                                             original_object_id=gwas_hit.original_id,
                                             predicate=predicate,
                                             relation=relation,
-                                            provided_by='RAGS_Builder',
                                             namespace=gwas_study.study_name,
                                             project_id=self.project_id,
                                             project_name=self.project_name,
@@ -188,49 +184,47 @@ class RAGsGraphBuilder(object):
 
     def add_genes_to_variants(self, variants: list):
 
-        logger.info(f'Finding gene relationships.')
+        logger.debug(f'Finding gene relationships.')
 
         variant_nodes = [RAGsNode(v["id"], SEQUENCE_VARIANT, None, synonyms=v["equivalent_identifiers"]) for v in variants]
 
-        v_to_gene_results = self.genetics_services.get_variant_to_gene(ALL_VARIANT_TO_GENE_SERVICES, variant_nodes)
+        variant_annotator = SequenceVariantAnnotator()
+        annotation_results = variant_annotator.get_variant_annotations(variant_nodes)
+        annotation_object_nodes = annotation_results['objects']
+        annotation_edges = annotation_results['edges']
 
-        logger.info(f'Normalizing genes.')
-        gene_node_ids = [node.id for (edge, node) in chain.from_iterable(v_to_gene_results.values())]
+        logger.debug(f'Normalizing genes from annotation..')
+        gene_node_ids = [node.id for node in annotation_object_nodes]
         gene_normalizations = self.rags_normalizer.get_normalized_nodes(gene_node_ids)
 
-        predicates = list(set([edge.predicate_id for (edge, node) in chain.from_iterable(v_to_gene_results.values())]))
+        logger.debug(f'Normalizing predicates from annotation..')
+        predicates = [edge.relation for edge in annotation_edges]
         predicate_normalizations = self.rags_normalizer.get_normalized_edges(predicates)
 
-        logger.info(f'Writing genes.')
-        self.write_nodes(gene_normalizations.values())
+        successfully_normalized_genes = [node for node in gene_normalizations.values() if node is not None]
+        logger.info(f'Writing {len(successfully_normalized_genes)} genes.')
+        self.write_nodes(successfully_normalized_genes)
         self.writer.flush()
 
-        logger.info(f'Writing variant to gene relationships.')
-        failed_predicates = set()
-        for variant_node_id, results in v_to_gene_results.items():
-            for (edge, gene_node) in results:
-                normalized_predicate = predicate_normalizations[edge.predicate_id]
-                if normalized_predicate:
-                    original_gene_id = gene_node.id
-                    if gene_normalizations[gene_node.id]:
-                        normalized_gene_id = gene_normalizations[gene_node.id].id
-                    else:
-                        normalized_gene_id = original_gene_id
+        already_written_edges = set()
+        logger.info(f'Writing {len(annotation_edges)} variant to gene relationships.')
+        for edge in annotation_edges:
+            normalized_predicate = predicate_normalizations[edge.predicate]
+            gene_node_id = edge.original_object_id
+            if gene_normalizations[gene_node_id]:
+                normalized_gene_id = gene_normalizations[gene_node_id].id
+                edge_key = f'{edge.subject_id}{normalized_gene_id}{normalized_predicate}'
+                if edge_key not in already_written_edges:
                     gene_edge = RAGsEdge(id=None,
-                                         subject_id=variant_node_id,
+                                         subject_id=edge.subject_id,
                                          object_id=normalized_gene_id,
-                                         original_object_id=original_gene_id,
+                                         original_object_id=gene_node_id,
                                          predicate=normalized_predicate,
-                                         relation=edge.predicate_id,
+                                         relation=edge.relation,
                                          provided_by=edge.provided_by,
                                          properties=edge.properties)
                     self.writer.write_edge(gene_edge)
-                else:
-                    failed_predicates.add(edge.predicate_id)
-            logger.debug(f'added {len(results)} variant relationships for {variant_node_id}')
-
-        if failed_predicates:
-            logger.error(f'Variant to gene annotations had these predicates that failed normalization: {failed_predicates}')
+                    already_written_edges.add(edge_key)
 
         self.writer.flush()
         logger.info(f'Writing variant to gene relationships complete.')
@@ -344,3 +338,4 @@ class RAGsGraphBuilder(object):
     def fetch_normalized_association_predicate(self):
         normalized_edges = self.rags_normalizer.get_normalized_edges([self.association_relation])
         return normalized_edges[self.association_relation]
+

@@ -5,7 +5,7 @@ from rags_src.rags_normalizer import RagsNormalizer
 from rags_src.rags_graph_db import RagsGraphDB
 from rags_src.rags_project_db import RagsProjectDB
 from rags_src.util import LoggingUtil
-from rags_src.rags_core import RAGsNode, GWAS, MWAS, ROOT_ENTITY, RAGS_ERROR_SEARCHING, RAGS_ERROR_BUILDING, SEQUENCE_VARIANT
+from rags_src.rags_core import *
 from dataclasses import dataclass
 import logging
 import os
@@ -37,7 +37,7 @@ class RagsProjectResults:
 
 class RagsProjectManager:
 
-    def __init__(self, project_id: str, project_name: str, project_db: RagsProjectDB):
+    def __init__(self, project_id: int, project_name: str, project_db: RagsProjectDB):
         self.project_id = project_id
         self.project_name = project_name
         self.project_db = project_db
@@ -233,10 +233,8 @@ class RagsProjectManager:
         results = RagsProjectResults()
 
         normalized_association_predicate = self.rags_builder.normalized_association_predicate
-        # TODO the variant node type and nearby variant edge type should be normalized dynamically maybe
-        query = f'MATCH (v:`{SEQUENCE_VARIANT}`)<-[:`{normalized_association_predicate}`]-() with distinct v WHERE NOT (v)-[:`biolink:is_nearby_variant_of`]-() return v.id as id, v.equivalent_identifiers as equivalent_identifiers'
+        query = f'MATCH (v:`{SEQUENCE_VARIANT}`)-[:`{normalized_association_predicate}`]-() with distinct v WHERE NOT (v)--(:`{GENE}`) return v.id as id, v.equivalent_identifiers as equivalent_identifiers'
         variants_for_annotation = self.rags_graph_db.custom_read_query(query)
-
         if variants_for_annotation:
             logger.info(f'Found {len(variants_for_annotation)} variants that need genes.')
             self.rags_builder.add_genes_to_variants(variants_for_annotation)
@@ -248,7 +246,6 @@ class RagsProjectManager:
         # TODO catch normalization or graph exceptions and return better errors
         results.success = True
         return results
-
 
     def validate_project(self):
         logger.info(f'Running validation for all builds in {self.project_id}')
