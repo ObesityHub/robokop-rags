@@ -1,7 +1,6 @@
 import logging
 import os
 import time
-from itertools import chain
 from typing import List
 
 from rags_src.rags_core import *
@@ -57,7 +56,7 @@ class RAGsGraphBuilder(object):
 
         real_file_path = self.get_real_file_path(study)
         if study.study_type == GWAS:
-            gwas_file = GWASFile(file_path=real_file_path)
+            gwas_file = GWASFile(file_path=real_file_path, has_tabix=study.has_tabix)
             with GWASFileReader(gwas_file) as gwas_file_reader:
                 results = gwas_file_reader.find_significant_hits(study.p_value_cutoff)
         elif study.study_type == MWAS:
@@ -131,7 +130,7 @@ class RAGsGraphBuilder(object):
         relation = self.association_relation
         predicate = self.normalized_association_predicate
         real_file_path = self.get_real_file_path(gwas_study)
-        gwas_file = GWASFile(file_path=real_file_path)
+        gwas_file = GWASFile(file_path=real_file_path, has_tabix=gwas_study.has_tabix)
         normalized_trait_id = gwas_study.normalized_trait_id if gwas_study.normalized_trait_id else gwas_study.original_trait_id
 
         unique_gwas_hits = []
@@ -144,7 +143,7 @@ class RAGsGraphBuilder(object):
                 unique_gwas_hits.append(hit)
                 already_added.add(hit.original_id)
 
-        with GWASFileReader(gwas_file, use_tabix=gwas_file.has_tabix) as gwas_file_reader:
+        with GWASFileReader(gwas_file) as gwas_file_reader:
             creation_time = int(time.time())
             logger.info(f'Reading {len(unique_gwas_hits)} GWAS associations from file!')
             gwas_associations = map(gwas_file_reader.get_gwas_association_from_file, unique_gwas_hits)

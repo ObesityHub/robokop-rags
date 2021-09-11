@@ -210,17 +210,23 @@ class GWASFileReader:
         }
     }
 
-    def __init__(self, gwas_file: GWASFile, use_tabix: bool = False):
-        self.possible_chrom_labels = ['chrom', 'chr', 'chromosome']
-        self.possible_pos_labels = ['pos', 'position']
-        self.possible_ref_labels = ['ref']
-        self.possible_alt_labels = ['alt']
-        self.possible_p_value_labels = ['pvalue', 'pval', 'p_value', 'p_val']
-        self.possible_beta_labels = ['beta']
+    possible_chrom_labels = ['chrom', 'chr', 'chromosome']
+    possible_pos_labels = ['pos', 'position']
+    possible_ref_labels = ['ref']
+    possible_alt_labels = ['alt']
+    possible_p_value_labels = ['pvalue', 'pval', 'p_value', 'p_val']
+    possible_beta_labels = ['beta']
+
+    def __init__(self, gwas_file: GWASFile):
         self.gwas_file = gwas_file
-        self.use_tabix = use_tabix
-        self.file_handler = None
+        if self.gwas_file.has_tabix:
+            self.get_gwas_association_function = self.__get_gwas_association_from_indexed_file
+        else:
+            self.get_gwas_association_function = self.__get_gwas_assocation_from_text_file
+
         self.initialized = False
+        self.file_handler = None
+        self.tabix_file_handler = None
 
     def __enter__(self):
         return self
@@ -243,54 +249,49 @@ class GWASFileReader:
             logger.error(f'IndexError: {exc_value} index error in file {self.gwas_file.file_path} - {exc_value}')
             return True
 
-    def initialize_reader(self):
-        if not self.initialized:
-            self.file_handler = self.create_normal_file_handler()
-            header_list = next(self.file_handler).split()
-            headers = [header.lower() for header in header_list]
-            for chrom_label in self.possible_chrom_labels:
-                if chrom_label in headers:
-                    self.chrom_index = headers.index(chrom_label)
-                    break
-            for pos_label in self.possible_pos_labels:
-                if pos_label in headers:
-                    self.pos_index = headers.index(pos_label)
-                    break
-            for ref_label in self.possible_ref_labels:
-                if ref_label in headers:
-                    self.ref_index = headers.index(ref_label)
-                    break
-            for alt_label in self.possible_alt_labels:
-                if alt_label in headers:
-                    self.alt_index = headers.index(alt_label)
-                    break
-            for p_val_label in self.possible_p_value_labels:
-                if p_val_label in headers:
-                    self.p_val_index = headers.index(p_val_label)
-                    break
-            for beta_label in self.possible_beta_labels:
-                if beta_label in headers:
-                    self.beta_index = headers.index(beta_label)
-                    break
+    def initialize_reader(self, use_tabix: bool):
+        self.file_handler = self.create_normal_file_handler()
+        header_list = next(self.file_handler).split()
+        headers = [header.lower() for header in header_list]
+        for chrom_label in self.possible_chrom_labels:
+            if chrom_label in headers:
+                self.chrom_index = headers.index(chrom_label)
+                break
+        for pos_label in self.possible_pos_labels:
+            if pos_label in headers:
+                self.pos_index = headers.index(pos_label)
+                break
+        for ref_label in self.possible_ref_labels:
+            if ref_label in headers:
+                self.ref_index = headers.index(ref_label)
+                break
+        for alt_label in self.possible_alt_labels:
+            if alt_label in headers:
+                self.alt_index = headers.index(alt_label)
+                break
+        for p_val_label in self.possible_p_value_labels:
+            if p_val_label in headers:
+                self.p_val_index = headers.index(p_val_label)
+                break
+        for beta_label in self.possible_beta_labels:
+            if beta_label in headers:
+                self.beta_index = headers.index(beta_label)
+                break
+        if (not hasattr(self, 'chrom_index') or
+                not hasattr(self, 'pos_index') or
+                not hasattr(self, 'ref_index') or
+                not hasattr(self, 'alt_index') or
+                not hasattr(self, 'p_val_index') or
+                not hasattr(self, 'beta_index')):
+            logger.error(f'Error: Bad file headers in {self.gwas_file.file_path} - {headers}')
+            raise IndexError(f'Bad file headers in {self.gwas_file.file_path} - {headers}')
 
-            if (not hasattr(self, 'chrom_index') or
-                    not hasattr(self, 'pos_index') or
-                    not hasattr(self, 'ref_index') or
-                    not hasattr(self, 'alt_index') or
-                    not hasattr(self, 'p_val_index') or
-                    not hasattr(self, 'beta_index')):
-                logger.error(f'Error: Bad file headers in {self.gwas_file.file_path} - {headers}')
-                raise IndexError(f'Bad file headers in {self.gwas_file.file_path} - {headers}')
+        if use_tabix:
+            self.file_handler.close()
+            self.file_handler = None
+            self.tabix_file_handler = tabix.open(f'{self.gwas_file.file_path}')
 
-            if self.use_tabix:
-                self.file_handler.close()
-                self.tabix_file_handler = tabix.open(f'{self.gwas_file.file_path}')
-            else:
-                # seek back to the beginning then skip the headers
-                self.file_handler.seek(0)
-                next(self.file_handler)
-
-            self.initialized = True
+        self.initialized = True
 
     def create_normal_file_handler(self):
         if self.gwas_file.file_path.endswith('.gz'):
@@ -301,7 +302,8 @@ class GWASFileReader:
     def find_significant_hits(self,
                               p_value_cutoff: float):
         try:
-            self.initialize_reader()
+            if not self.initialized or self.file_handler is None:
+                self.initialize_reader(use_tabix=False)
         except OSError as e:
             error_message = f'Error reading file {Text.path_last(self.gwas_file.file_path)}: {e}'
             logger.warning(error_message)
@@ -412,12 +414,10 @@ class GWASFileReader:
         return hgvs
 
     def get_gwas_association_from_file(self, sequence_variant: SignificantHit):
-        self.initialize_reader()
-        if self.use_tabix:
-            association_line = self.__get_gwas_association_from_indexed_file(sequence_variant)
-        else:
-            association_line = self.__get_gwas_assocation_from_text_file(sequence_variant)
-        
+        if not self.initialized:
+            self.initialize_reader(use_tabix=self.gwas_file.has_tabix)
+
+        association_line = self.get_gwas_association_function(sequence_variant)
         if association_line:
             try:
                 p_value = float(association_line[self.p_val_index])
@@ -447,7 +447,6 @@ class GWASFileReader:
                     return line
         except tabix.TabixError:
             logger.error(f'Error: TabixError ({self.gwas_file.file_path}) chromosome({sequence_variant.chrom}) positions({position_start}-{position_end})')
-
         return None
 
     def __get_gwas_assocation_from_text_file(self, sequence_variant: GWASHit):
@@ -463,4 +462,3 @@ class GWASFileReader:
         except (csv.Error, TypeError) as e:
             logger.error(f'CSVReader error in ({self.gwas_file.file_path}): {e}')
         return None
-
