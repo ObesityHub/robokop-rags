@@ -76,23 +76,31 @@ class RAGsGraphBuilder(object):
         variant_ids = list(set([hit.original_id for hit in gwas_hits]))
         logger.info(f'Found {len(variant_ids)} sequence variant nodes to normalize. Normalizing...')
         variant_norm_failures = []
+        variant_norm_missing = []
         variant_node_types = frozenset(self.genetics_normalizer.get_sequence_variant_node_types())
         sequence_variant_normalizations = self.genetics_normalizer.normalize_variants(variant_ids)
         normalized_variant_nodes = []
+        # this looks like we might write duplicates but we need to update all of the gwas hit models in the DB
+        # the graph writer prevents the duplicate node writes if they occur
         for gwas_hit in gwas_hits:
             gwas_hit.normalized = True
             original_id = gwas_hit.original_id
-            normalized_node = sequence_variant_normalizations[original_id][0]
-            if 'id' in normalized_node:
+            normalization_response = None
+            if len(sequence_variant_normalizations[original_id]) > 0:
+                normalization_response = sequence_variant_normalizations[original_id][0]
+            if normalization_response and 'id' in normalization_response:
                 # sequence variant normalization returns a list of results but assume there is only one item or nothing
                 # this is because we always start with unambiguous IDs for RAGs GWAS variants
-                variant_node_id = normalized_node["id"]
+                variant_node_id = normalization_response["id"]
                 gwas_hit.normalized_id = variant_node_id
-                variant_node_name = normalized_node["name"]
+                variant_node_name = normalization_response["name"]
                 gwas_hit.normalized_name = variant_node_name
-                equivalent_identifiers = normalized_node["equivalent_identifiers"]
+                equivalent_identifiers = normalization_response["equivalent_identifiers"]
             else:
-                variant_norm_failures.append(original_id)
+                if normalization_response:
+                    variant_norm_failures.append(original_id)
+                else:
+                    variant_norm_missing.append(original_id)
                 variant_node_id = original_id
                 variant_node_name = gwas_hit.original_name
                 equivalent_identifiers = set()
@@ -107,6 +115,8 @@ class RAGsGraphBuilder(object):
         self.write_nodes(normalized_variant_nodes)
         if variant_norm_failures:
             logger.warning(f'Processing GWAS variants, these failed normalization: {", ".join(variant_norm_failures)}')
+        if variant_norm_missing:
+            logger.warning(f'Processing GWAS variants, these were missing normalization responses: {", ".join(variant_norm_missing)}')
         logger.info(f'Writing variant nodes complete.')
 
         return len(gwas_hits)
