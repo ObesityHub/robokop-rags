@@ -47,10 +47,10 @@ class BufferedWriter(object):
             self.flush()
 
     def write_edge(self, edge: RAGsEdge):
-        if edge in self.written_edges[edge.subject_id][edge.object_id]:
-            return
-        else:
-            self.written_edges[edge.subject_id][edge.object_id].add(edge)
+        #if edge in self.written_edges[edge.subject_id][edge.object_id]:
+        #    return
+        #else:
+        #    self.written_edges[edge.subject_id][edge.object_id].add(edge)
 
         edge_queue = self.edge_queues[edge.predicate]
         edge_queue.append(edge)
