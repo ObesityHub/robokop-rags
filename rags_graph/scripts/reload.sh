@@ -49,7 +49,7 @@ docker-compose -f $compose_file_location up -d
 #docker exec $(docker ps -f name=rags_graph -q) ls -lh $backup_file
 
 echo "loading graph ..."
-docker exec $(docker ps -f name=rags_graph -q) bash bin/neo4j-admin load --from $backup_file --force true
+docker exec $(docker ps -f name=rags_graph -q) bash neo4j-admin load --from $backup_file --force
 
 echo "killing graph loading container..."
 docker kill $(docker ps -f name=rags_graph -q)
