@@ -141,6 +141,7 @@ class SequenceVariantAnnotator:
                                       source_nodes: list,
                                       vcf_file_path: str):
         with open(vcf_file_path, "w") as vcf_file:
+            vcf_file.write('##fileformat=VCFv4.2')
             vcf_headers = "\t".join(["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"])
             vcf_file.write(f'#{vcf_headers}\n')
             for node in source_nodes:
@@ -148,12 +149,25 @@ class SequenceVariantAnnotator:
                     if curie.startswith('ROBO_VAR'):
                         robo_key = curie.split(':', 1)[1]
                         robo_params = robo_key.split('|')
+                        chromosome = robo_params[1]
+                        position = int(robo_params[2])
+                        ref_allele = robo_params[4]
+                        alt_allele = robo_params[5]
 
-                        current_variant_line = "\t".join([robo_params[1],
-                                                          robo_params[2],
+                        if not ref_allele:
+                            ref_allele = f'N'
+                            alt_allele = f'N{alt_allele}'
+                        elif not alt_allele:
+                            ref_allele = f'N{ref_allele}'
+                            alt_allele = f'N'
+                        else:
+                            position += 1
+
+                        current_variant_line = "\t".join([chromosome,
+                                                          str(position),
                                                           node.id,
-                                                          robo_params[4],
-                                                          robo_params[5] if robo_params[5] else '.',
+                                                          ref_allele,
+                                                          alt_allele,
                                                           '',
                                                           'PASS',
                                                           ''])

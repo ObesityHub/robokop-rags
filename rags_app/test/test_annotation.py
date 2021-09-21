@@ -1,6 +1,6 @@
 import pytest
-
-from rags_src.rags_core import RAGsNode, SEQUENCE_VARIANT
+from collections import defaultdict
+from rags_src.rags_core import RAGsNode, RAGsEdge, SEQUENCE_VARIANT
 from rags_src.rags_variant_annotation import SequenceVariantAnnotator
 
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
@@ -10,8 +10,17 @@ def test_snpeff_annotation():
 
     genetics_normalizer = GeneticsNormalizer(use_cache=False)
 
-    variant_ids = ['CAID:CA36853879',
-                   'HGVS:NC_000014.9:g.64442127G>A']
+    #variant_ids = ['CAID:CA36853879']
+
+    variant_ids = [
+        # deletions
+        'CAID:CA36853879',
+        'CAID:CA36203597',
+        # insertions
+        'CAID:CA916079866', # on X chromosome
+        # missense snps
+        'CAID:CA321211',
+        'CAID:CA123309']
 
     sequence_variant_normalizations = genetics_normalizer.normalize_variants(variant_ids)
 
@@ -23,17 +32,20 @@ def test_snpeff_annotation():
                                 name="",
                                 synonyms=variant_normalization['equivalent_identifiers'])
         variant_nodes.append(variant_node)
-        #print(variant_normalization['id'])
-        #print(variant_normalization['equivalent_identifiers'])
 
     variant_annotator = SequenceVariantAnnotator()
     annotation_results = variant_annotator.get_variant_annotations(variant_nodes)
-    #print(annotation_results)
 
-    #for edge in annotation_results['edges']:
-    #    print(edge)
+    edge_dict = defaultdict(lambda: defaultdict(list))
+    for edge in annotation_results['edges']:
+        edge_dict[edge.subject_id][edge.predicate].append(edge)
 
-    assert len(annotation_results['edges']) > 10
+    for subject_id, subject_dict in edge_dict.items():
+        for predicate_id, edges in subject_dict.items():
+            print(f'{subject_id} - {predicate_id} - {len(edges)}')
 
+    assert len(edge_dict['CAID:CA36853879']['SNPEFF:upstream_gene_variant']) == 19
+    assert len(edge_dict['CAID:CA36853879']['GAMMA:0000102']) == 2
 
-
+    assert len(edge_dict['CAID:CA321211']['SNPEFF:missense_variant']) > 0
+    assert len(edge_dict['CAID:CA123309']['SNPEFF:missense_variant']) > 0
