@@ -112,7 +112,7 @@ def write_batch_of_nodes(tx, batch_of_nodes, node_type_set):
     node_dicts = []
     for n in batch_of_nodes:
         n.properties['equivalent_identifiers'] = list(n.synonyms)
-        n.properties['category'] = list(node_type_set)
+        #n.properties['category'] = list(node_type_set)
         n.properties['name'] = n.name
         export_node = {'id': n.id,  'properties': n.properties}
         node_dicts.append(export_node)

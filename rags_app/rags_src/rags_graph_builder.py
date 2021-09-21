@@ -12,7 +12,6 @@ from rags_src.rags_normalizer import RagsNormalizer
 from rags_src.rags_variant_annotation import SequenceVariantAnnotator
 from rags_src.util import LoggingUtil
 
-from robokop_genetics.genetics_services import GeneticsServices, ALL_VARIANT_TO_GENE_SERVICES
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
 
 
@@ -38,7 +37,6 @@ class RAGsGraphBuilder(object):
         self.project_id = project_id
         self.project_name = project_name
         self.genetics_normalizer = GeneticsNormalizer(use_cache=False)
-        self.genetics_services = GeneticsServices(use_cache=False)
         self.writer = BufferedWriter(graph_db)
         self.rags_data_directory = rags_data_directory
         self.rags_normalizer = rags_normalizer if rags_normalizer else RagsNormalizer()
