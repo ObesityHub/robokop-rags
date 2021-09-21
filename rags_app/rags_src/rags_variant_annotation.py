@@ -86,9 +86,9 @@ class SequenceVariantAnnotator:
             for line in snpeff_output:
                 if line.startswith("#") or not line:
                     if 'SnpEffVersion' in line:
-                        annotation_results['metadata']['SnpEffVersion'] = line.split("=")[1]
+                        annotation_results['metadata']['SnpEffVersion'] = line.split("=")[1].strip()
                     if 'SnpEffCmd' in line:
-                        annotation_results['metadata']['SnpEffCmd'] = line.split("=")[1]
+                        annotation_results['metadata']['SnpEffCmd'] = line.split("=")[1].strip()
                     continue
                 vcf_line_split = line.split('\t')
                 variant_id = vcf_line_split[2]
@@ -153,7 +153,7 @@ class SequenceVariantAnnotator:
                                                           robo_params[2],
                                                           node.id,
                                                           robo_params[4],
-                                                          robo_params[5],
+                                                          robo_params[5] if robo_params[5] else '.',
                                                           '',
                                                           'PASS',
                                                           ''])
