@@ -214,7 +214,7 @@ class RAGsGraphBuilder(object):
         self.writer.flush()
 
         already_written_edges = set()
-        logger.info(f'Writing {len(annotation_edges)} variant to gene relationships.')
+        logger.info(f'Found {len(annotation_edges)} variant to gene relationships.')
         for edge in annotation_edges:
             normalized_predicate = predicate_normalizations[edge.predicate]
             gene_node_id = edge.original_object_id
@@ -232,9 +232,8 @@ class RAGsGraphBuilder(object):
                                          properties=edge.properties)
                     self.writer.write_edge(gene_edge)
                     already_written_edges.add(edge_key)
-
         self.writer.flush()
-        logger.info(f'Writing variant to gene relationships complete.')
+        logger.info(f'Wrote {len(already_written_edges)} variant to gene relationships after removing duplicates.')
 
     def process_mwas_metabolites(self, mwas_hits: List[MWASHit]):
 

@@ -7,6 +7,7 @@ from rags_src.rags_project_db import RagsProjectDB
 from rags_src.util import LoggingUtil
 from rags_src.rags_core import *
 from dataclasses import dataclass
+from math import ceil
 import logging
 import os
 
@@ -233,12 +234,17 @@ class RagsProjectManager:
         results = RagsProjectResults()
 
         normalized_association_predicate = self.rags_builder.normalized_association_predicate
-        query = f'MATCH (v:`{SEQUENCE_VARIANT}`)-[:`{normalized_association_predicate}`]-() with distinct v WHERE NOT (v)--(:`{GENE}`) return v.id as id, v.equivalent_identifiers as equivalent_identifiers'
+        query = f'MATCH (v:`{SEQUENCE_VARIANT}`)<-[:`{normalized_association_predicate}`]-() with distinct v return v.id as id, v.equivalent_identifiers as equivalent_identifiers'
         variants_for_annotation = self.rags_graph_db.custom_read_query(query)
         if variants_for_annotation:
             logger.info(f'Found {len(variants_for_annotation)} variants that need genes.')
-            self.rags_builder.add_genes_to_variants(variants_for_annotation)
-            results.success_message = f"Annotated {len(variants_for_annotation)} variants."
+            batch_size = 20000
+            num_batches = ceil(len(variants_for_annotation) / batch_size)
+            for i in range(num_batches):
+                logger.info(f'Annotating batch {i+1} of {num_batches}.')
+                variant_subset = variants_for_annotation[i * batch_size:i * batch_size + batch_size]
+                self.rags_builder.add_genes_to_variants(variant_subset)
+            results.success_message = f"Annotation complete."
         else:
             logger.info(f'Found no variants that need genes in the graph.')
             results.success_message = f"Found no variants that need genes in the graph."
